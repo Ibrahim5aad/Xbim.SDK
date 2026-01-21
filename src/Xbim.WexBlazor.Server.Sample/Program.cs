@@ -18,6 +18,7 @@ builder.Services.AddSingleton(themeService);
 // Register IFC processing services (server-side only)
 builder.Services.AddSingleton<IfcModelService>();
 builder.Services.AddSingleton<PropertyService>();
+builder.Services.AddSingleton<IfcHierarchyService>();
 
 var app = builder.Build();
 

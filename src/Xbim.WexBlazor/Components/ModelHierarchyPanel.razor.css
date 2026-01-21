@@ -180,20 +180,59 @@
 }
 
 .tree-model-group {
-    margin-bottom: 8px;
+    margin-bottom: 12px;
+}
+
+.tree-model-group-content {
+    margin-left: 8px;
+    padding-left: 12px;
+    border-left: 1px solid var(--xbim-border-primary);
 }
 
 .tree-model-header {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 12px;
-    background: var(--xbim-bg-secondary);
+    padding: 10px 12px;
+    background: linear-gradient(135deg, var(--xbim-accent-primary-bg) 0%, var(--xbim-bg-secondary) 100%);
     border-radius: 6px;
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     color: var(--xbim-text-primary);
-    margin-bottom: 4px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.tree-model-header:hover {
+    background: linear-gradient(135deg, var(--xbim-accent-primary-bg) 0%, var(--xbim-bg-hover) 100%);
+}
+
+.tree-model-header .tree-expand-btn {
+    margin-left: -4px;
+    color: var(--xbim-accent-primary);
+}
+
+.tree-model-header .tree-node-count {
+    margin-left: auto;
+    background: var(--xbim-accent-primary);
+    color: white;
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.tree-model-header i.bi-file-earmark-binary {
+    color: var(--xbim-accent-primary);
+    font-size: 1rem;
+}
+
+.tree-model-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .tree-node {

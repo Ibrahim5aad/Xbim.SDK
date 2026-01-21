@@ -187,14 +187,12 @@ propertyService.RegisterSource(propertySource);
 
 ### Using the Properties Panel
 
-Add the `PropertiesPanel` component to display properties:
+The `PropertiesPanel` auto-injects `PropertyService` and subscribes to pick events:
 
 ```razor
-<PropertiesPanel 
-    IsVisible="@_showProperties"
-    Properties="@_currentProperties"
-    IsLoading="@_isLoadingProperties"
-    Position="PropertiesPanelPosition.Right" />
+<XbimViewerComponent @ref="_viewer" ...>
+    <PropertiesPanel />
+</XbimViewerComponent>
 ```
 
 ### Custom Property Source Example
@@ -272,26 +270,23 @@ The library includes a flexible sidebar system that allows you to dock panels al
 
 ### Using ViewerSidebar
 
-The `ViewerSidebar` component provides a dockable sidebar with icon-based panel management:
+The `ViewerSidebar` component provides a dockable sidebar with icon-based panel management. Panels inside the sidebar automatically receive the `XbimViewerComponent` via cascading parameters:
 
 ```razor
-<ViewerSidebar Position="SidebarPosition.Left" DefaultDocked="false">
-    <SidebarPanel Title="Properties" Icon="bi-list-ul" IsOpen="@_showProperties">
-        <PropertiesPanel 
-            ShowHeader="false"
-            IsVisible="true"
-            Properties="@_currentProperties" />
-    </SidebarPanel>
-    
-    <SidebarPanel Title="Hierarchy" Icon="bi-diagram-3" IsOpen="@_showHierarchy">
-        <ModelHierarchyPanel 
-            ShowHeader="false"
-            IsVisible="true"
-            ProductTypes="@_productTypes"
-            SpatialStructure="@_spatialStructure" />
-    </SidebarPanel>
-</ViewerSidebar>
+<XbimViewerComponent @ref="_viewer" ...>
+    <ViewerSidebar Position="SidebarPosition.Left">
+        <SidebarPanel Title="Properties" Icon="bi-info-circle" @bind-IsOpen="_showProperties">
+            <PropertiesPanel ShowHeader="false" />
+        </SidebarPanel>
+        
+        <SidebarPanel Title="Hierarchy" Icon="bi-diagram-3" @bind-IsOpen="_showHierarchy">
+            <ModelHierarchyPanel ShowHeader="false" />
+        </SidebarPanel>
+    </ViewerSidebar>
+</XbimViewerComponent>
 ```
+
+Both `PropertiesPanel` and `ModelHierarchyPanel` are self-contained - they automatically inject their required services and subscribe to viewer events.
 
 ### Sidebar Features
 
@@ -318,58 +313,24 @@ The `SidebarPanel` provides:
 
 ## Model Hierarchy Panel
 
-The `ModelHierarchyPanel` component displays the structure of loaded models in two views:
+The `ModelHierarchyPanel` displays model structure in two tabs:
 
-### Product Types View
+- **Product Types**: IFC entity types with element counts
+- **Spatial Structure**: Project → Site → Building → Storey hierarchy (Blazor Server only)
 
-Shows all product types (IFC entity types) found in the model, organized by type. Clicking on a product type highlights all elements of that type in the viewer.
-
-### Spatial Structure View
-
-Displays the spatial hierarchy of the model (Project → Site → Building → Storey → Space). This view is only available when loading IFC files, as the spatial structure is extracted from the IFC model.
-
-### Using ModelHierarchyPanel
+The panel auto-refreshes when models are loaded/unloaded and supports multiple models with collapsible headers.
 
 ```razor
-<ModelHierarchyPanel 
-    IsVisible="@_showHierarchy"
-    ProductTypes="@_productTypes"
-    SpatialStructure="@_spatialStructure"
-    OnProductSelected="HandleProductSelected"
-    ShowHeader="true" />
+<XbimViewerComponent @ref="_viewer" ...>
+    <ModelHierarchyPanel />
+</XbimViewerComponent>
 ```
 
-### Getting Product Types
-
-Product types are retrieved from the viewer after a model is loaded:
+For spatial structure (Blazor Server only), register `IfcHierarchyService`:
 
 ```csharp
-private async Task LoadModel()
-{
-    var loadedModel = await Viewer.LoadModelFromUrlAsync("model.wexbim");
-    if (loadedModel != null)
-    {
-        var productTypes = await Viewer.GetProductTypesAsync(loadedModel.Id);
-        _productTypes = productTypes?.ToList() ?? new List<ProductTypeInfo>();
-    }
-}
-```
-
-### Getting Spatial Structure (IFC Only)
-
-For IFC models, use `IfcHierarchyService` to extract spatial structure:
-
-```csharp
-@inject IfcHierarchyService IfcHierarchyService
-
-private async Task RefreshHierarchy()
-{
-    if (Viewer?.LoadedModels?.FirstOrDefault()?.IfcModel != null)
-    {
-        var model = Viewer.LoadedModels.First().IfcModel;
-        _spatialStructure = await IfcHierarchyService.GetSpatialStructureAsync(model);
-    }
-}
+// Program.cs
+builder.Services.AddSingleton<IfcHierarchyService>();
 ```
 
 ## Loading IFC Files Directly

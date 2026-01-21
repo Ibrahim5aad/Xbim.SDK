@@ -58,24 +58,10 @@
 
             <ViewerSidebar Position="SidebarPosition.Left">
                     <SidebarPanel Icon="bi-info-circle" Title="Properties" @bind-IsOpen="_showPropertiesPanel" Width="320">
-                        <PropertiesPanel 
-                            IsVisible="true"
-                            Properties="@_currentProperties"
-                            IsLoading="@_isLoadingProperties"
-                            ShowHeader="false" />
+                        <PropertiesPanel ShowHeader="false" AutoHighlightOnPick="false" />
                     </SidebarPanel>
                     <SidebarPanel Icon="bi-diagram-3" Title="Hierarchy" @bind-IsOpen="_showHierarchyPanel" Width="300">
-                        <ModelHierarchyPanel 
-                            IsVisible="true"
-                            ProductTypes="@_productTypes"
-                            SpatialStructure="@_spatialStructure"
-                            HasSpatialData="@(_spatialStructure != null)"
-                            IsLoading="@_isLoadingHierarchy"
-                            SelectedProducts="@_selectedProductSet"
-                            GetModelNameFunc="@GetModelName"
-                            ShowHeader="false"
-                            OnRefresh="RefreshHierarchy"
-                            OnProductSelected="HandleHierarchyProductSelected" />
+                        <ModelHierarchyPanel ShowHeader="false" />
                     </SidebarPanel>
             </ViewerSidebar>
         }
@@ -89,14 +75,6 @@
     private bool _showPropertiesPanel = false;
     private bool _showHierarchyPanel = false;
     private List<SelectedElement> _selectedElements = new();
-    private ElementProperties? _currentProperties;
-    private bool _isLoadingProperties = false;
-    
-    private List<ProductTypeInfo> _productTypes = new();
-    private HierarchyNode? _spatialStructure;
-    private bool _isLoadingHierarchy = false;
-    private HashSet<(int ProductId, int ModelId)> _selectedProductSet = new();
-    private IfcHierarchyService _hierarchyService = new();
     
     // Plugin tracking
     private bool _gridActive = false;
@@ -227,7 +205,6 @@
                     if (_xbimViewer != null)
                     {
                         await _xbimViewer.ClearSelectionAsync();
-                        _currentProperties = null;
                         StateHasChanged();
                     }
                 })
@@ -414,7 +391,6 @@
                         
                         _showFileLoader = false;    
                         StateHasChanged();
-                        await RefreshHierarchy();
                     }
                 }
             }
@@ -502,17 +478,10 @@
             if (isHighlighted)
             {
                 await _xbimViewer.UnhighlightElementsAsync(new[] { e.Id.Value }, e.Model);
-                // Clear properties when deselecting
-                _currentProperties = null;
             }
             else
             {
                 await _xbimViewer.HighlightElementsAsync(new[] { e.Id.Value }, e.Model);
-                // Load properties for the selected element
-                if (e.Model.HasValue)
-                {
-                    await LoadPropertiesForElement(e.Id.Value, e.Model.Value);
-                }
             }
             
             await GetSelection();
@@ -520,39 +489,6 @@
         
         await InvokeAsync(StateHasChanged);
     }
-    
-    private async Task LoadPropertiesForElement(int elementId, int modelId)
-    {
-        if (PropertyService == null) return;
-        
-        try
-        {
-            _isLoadingProperties = true;
-            StateHasChanged();
-            
-            // Get properties from all registered sources
-            var properties = await PropertyService.GetPropertiesAsync(elementId, modelId);
-            
-            _currentProperties = properties;
-            
-            // Show properties panel if it's hidden
-            if (properties != null && !_showPropertiesPanel)
-            {
-                _showPropertiesPanel = true;
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading properties: {ex.Message}");
-            _currentProperties = null;
-        }
-        finally
-        {
-            _isLoadingProperties = false;
-            StateHasChanged();
-        }
-    }
-    
     
     private async Task HandleHoverPick(ViewerEventArgs e)
     {
@@ -573,69 +509,6 @@
         {
             await _xbimViewer.ShowAsync(ViewerConstants.ViewType.Top);
         }
-    }
-
-    private async Task RefreshHierarchy()
-    {
-        if (_xbimViewer == null) return;
-        
-        _isLoadingHierarchy = true;
-        StateHasChanged();
-        
-        try
-        {
-            _productTypes = await _xbimViewer.GetProductTypesAsync();
-            
-            var models = _xbimViewer.GetLoadedModels();
-            foreach (var model in models.Values)
-            {
-                if (model.IfcModel != null)
-                {
-                    _spatialStructure = _hierarchyService.GetSpatialStructure(model.IfcModel, model.Id);
-                    break;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading hierarchy: {ex.Message}");
-        }
-        finally
-        {
-            _isLoadingHierarchy = false;
-            StateHasChanged();
-        }
-    }
-
-    private async Task HandleHierarchyProductSelected((int ProductId, int ModelId) selection)
-    {
-        if (_xbimViewer == null) return;
-        
-        var isSelected = _selectedProductSet.Contains(selection);
-        
-        if (isSelected)
-        {
-            await _xbimViewer.UnhighlightElementsAsync(new[] { selection.ProductId }, selection.ModelId);
-            _selectedProductSet.Remove(selection);
-        }
-        else
-        {
-            await _xbimViewer.HighlightElementsAsync(new[] { selection.ProductId }, selection.ModelId);
-            _selectedProductSet.Add(selection);
-            await LoadPropertiesForElement(selection.ProductId, selection.ModelId);
-        }
-        
-        StateHasChanged();
-    }
-
-    private string GetModelName(int modelId)
-    {
-        var models = _xbimViewer?.GetLoadedModels();
-        if (models != null && models.TryGetValue(modelId, out var model))
-        {
-            return model.Name;
-        }
-        return $"Model {modelId}";
     }
 
     public void Dispose()

@@ -120,3 +120,30 @@ public enum ModelManagerPosition
     BottomRight
 }
 
+/// <summary>
+/// Type of model change event
+/// </summary>
+public enum ModelChangeType
+{
+    Loaded,
+    Unloaded,
+    Started,
+    Stopped
+}
+
+/// <summary>
+/// Event args for model state changes
+/// </summary>
+public class ModelChangedEventArgs : EventArgs
+{
+    public LoadedModel Model { get; }
+    public ModelChangeType ChangeType { get; }
+    public IReadOnlyDictionary<int, LoadedModel> AllModels { get; }
+    
+    public ModelChangedEventArgs(LoadedModel model, ModelChangeType changeType, IReadOnlyDictionary<int, LoadedModel> allModels)
+    {
+        Model = model;
+        ChangeType = changeType;
+        AllModels = allModels;
+    }
+}

@@ -1190,7 +1190,7 @@ export function getModelProductTypes(viewerId: string, modelId?: number): Array<
 
         const viewerAny = viewer as any;
         const result: Array<{typeId: number, productIds: number[], modelId: number}> = [];
-        const typeSet = new Set<number>();
+        const typeSet = new Set<string>();
 
         if (!viewerAny._handles || viewerAny._handles.length === 0) {
             return [];
@@ -1211,8 +1211,9 @@ export function getModelProductTypes(viewerId: string, modelId?: number): Array<
                     for (const [productId, productMap] of productMaps) {
                         if (productMap && productMap.type !== undefined) {
                             const typeId = productMap.type as number;
-                            if (!typeSet.has(typeId)) {
-                                typeSet.add(typeId);
+                            const typeKey = `${typeId}-${handleModelId}`;
+                            if (!typeSet.has(typeKey)) {
+                                typeSet.add(typeKey);
                                 const products = viewer.getProductsOfType(typeId, handleModelId);
                                 if (products && products.length > 0) {
                                     result.push({
@@ -1234,8 +1235,9 @@ export function getModelProductTypes(viewerId: string, modelId?: number): Array<
                     for (const [productId, productMap] of entries) {
                         if (productMap && productMap.type !== undefined) {
                             const typeId = productMap.type as number;
-                            if (!typeSet.has(typeId)) {
-                                typeSet.add(typeId);
+                            const typeKey = `${typeId}-${handleModelId}`;
+                            if (!typeSet.has(typeKey)) {
+                                typeSet.add(typeKey);
                                 const products = viewer.getProductsOfType(typeId, handleModelId);
                                 if (products && products.length > 0) {
                                     result.push({

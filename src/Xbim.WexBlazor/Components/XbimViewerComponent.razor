@@ -6,12 +6,14 @@
 
 @inject IJSRuntime JSRuntime
 
-<div class="xbim-viewer-container" style="@ContainerStyle">
-    <div class="xbim-canvas-wrapper">
-        <canvas id="@Id" width="@Width" height="@Height"></canvas>
+<CascadingValue Value="this" IsFixed="false">
+    <div class="xbim-viewer-container" style="@ContainerStyle">
+        <div class="xbim-canvas-wrapper">
+            <canvas id="@Id" width="@Width" height="@Height"></canvas>
+        </div>
+        @ChildContent
     </div>
-    @ChildContent
-</div>
+</CascadingValue>
 
 @code {
     private XbimViewerInterop? _xbimViewer;
@@ -114,6 +116,24 @@
     public RenderFragment? ChildContent { get; set; }
 
     /// <summary>
+    /// Event raised when models change (loaded, unloaded, started, stopped)
+    /// </summary>
+    [Parameter]
+    public EventCallback<ModelChangedEventArgs> OnModelChanged { get; set; }
+
+    /// <summary>
+    /// C# event for child component subscriptions to model changes.
+    /// Mirrors OnModelChanged EventCallback.
+    /// </summary>
+    public event Action<ModelChangedEventArgs>? ModelChanged;
+
+    /// <summary>
+    /// C# event for child component subscriptions to element picks.
+    /// Mirrors OnPick EventCallback.
+    /// </summary>
+    public event Action<ViewerEventArgs>? Pick;
+
+    /// <summary>
     /// Initialize the viewer when the component is initialized
     /// </summary>
     protected override async Task OnInitializedAsync()
@@ -207,6 +227,7 @@
                     break;
 
                 case "pick":
+                    Pick?.Invoke(eventArgs);
                     if (OnPick.HasDelegate)
                         await OnPick.InvokeAsync(eventArgs);
                     break;
@@ -264,6 +285,7 @@
                 
                 await _xbimViewer.StartAsync(_viewerId);
                 await OnModelLoaded.InvokeAsync(true);
+                await RaiseModelChangedAsync(loadedModel, ModelChangeType.Loaded);
                 
                 return loadedModel;
             }
@@ -322,6 +344,7 @@
             }
             
             _loadedModels.Remove(modelId);
+            await RaiseModelChangedAsync(model, ModelChangeType.Unloaded);
             
             // Update _modelLoaded flag
             _modelLoaded = _loadedModels.Count > 0;
@@ -347,6 +370,7 @@
         if (success && _loadedModels.TryGetValue(modelId, out var model))
         {
             model.IsStarted = started;
+            await RaiseModelChangedAsync(model, started ? ModelChangeType.Started : ModelChangeType.Stopped);
         }
         
         return success;
@@ -373,6 +397,21 @@
         foreach (var modelId in modelIds)
         {
             await UnloadModelAsync(modelId);
+        }
+    }
+
+    /// <summary>
+    /// Raises the model changed event for both EventCallback and C# event subscribers
+    /// </summary>
+    private async Task RaiseModelChangedAsync(LoadedModel model, ModelChangeType changeType)
+    {
+        var args = new ModelChangedEventArgs(model, changeType, _loadedModels);
+        
+        ModelChanged?.Invoke(args);
+        
+        if (OnModelChanged.HasDelegate)
+        {
+            await OnModelChanged.InvokeAsync(args);
         }
     }
 
@@ -806,8 +845,15 @@
     {
         if (_xbimViewer != null && !string.IsNullOrEmpty(_viewerId) && _viewerInitialized)
         {
-            await _xbimViewer.DisposeViewerAsync(_viewerId);
-            await _xbimViewer.DisposeAsync();
+            try
+            {
+                await _xbimViewer.DisposeViewerAsync(_viewerId);
+                await _xbimViewer.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // Expected when circuit disconnects before disposal (e.g., browser tab closed)
+            }
         }
 
         _dotNetHelper?.Dispose();
