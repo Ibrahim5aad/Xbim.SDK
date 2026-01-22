@@ -120,13 +120,19 @@
             var panelWidth = (_isDocked && openPanel != null) ? openPanel.Width + 48 : 0;
             
             var side = Position == SidebarPosition.Left ? "left" : "right";
+            var leftOffset = Position == SidebarPosition.Left ? panelWidth / 2 : 0;
+            var rightOffset = Position == SidebarPosition.Right ? -panelWidth / 2 : 0;
+            
             await JSRuntime.InvokeVoidAsync("eval", $@"
                 (function() {{
                     var sidebar = document.querySelector('.viewer-sidebar');
                     if (sidebar) {{
-                        var wrapper = sidebar.closest('.xbim-viewer-container')?.querySelector('.xbim-canvas-wrapper');
-                        if (wrapper) {{
+                        var container = sidebar.closest('.xbim-viewer-container');
+                        var wrapper = container?.querySelector('.xbim-canvas-wrapper');
+                        if (wrapper && container) {{
                             wrapper.style.{side} = '{panelWidth}px';
+                            container.style.setProperty('--sidebar-left-offset', '{leftOffset}px');
+                            container.style.setProperty('--sidebar-right-offset', '{rightOffset}px');
                             setTimeout(function() {{
                                 window.dispatchEvent(new Event('resize'));
                             }}, 250);
@@ -146,10 +152,13 @@
         {
             await JSRuntime.InvokeVoidAsync("eval", @"
                 (function() {
-                    var wrapper = document.querySelector('.xbim-canvas-wrapper');
-                    if (wrapper) {
+                    var container = document.querySelector('.xbim-viewer-container');
+                    var wrapper = container?.querySelector('.xbim-canvas-wrapper');
+                    if (wrapper && container) {
                         wrapper.style.left = '0';
                         wrapper.style.right = '0';
+                        container.style.setProperty('--sidebar-left-offset', '0px');
+                        container.style.setProperty('--sidebar-right-offset', '0px');
                     }
                 })();
             ");

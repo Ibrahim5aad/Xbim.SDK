@@ -409,13 +409,6 @@ The panel will:
 - Show appropriate icons and badges for each format
 - Display a note when IFC files will be processed
 
-### Important Notes
-
-- **✅ Blazor Server**: Full IFC support - can load and process IFC files directly
-- **❌ Blazor WebAssembly**: IFC processing not supported - must use pre-converted wexBIM files or a server API
-- **Memory Usage**: Large IFC files may require significant memory during processing
-- **Processing Time**: Complex models can take several seconds to process
-- **Properties**: When loading IFC files, properties are automatically extracted and available in the properties panel
 
 ## wexBIM Format
 

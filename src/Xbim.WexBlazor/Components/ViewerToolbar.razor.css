@@ -38,7 +38,7 @@
 
 .xbim-toolbar-top.xbim-toolbar-center,
 .xbim-toolbar-bottom.xbim-toolbar-center {
-    left: 50%;
+    left: calc(50% + var(--sidebar-left-offset, 0px) + var(--sidebar-right-offset, 0px));
     transform: translateX(-50%);
 }
 
