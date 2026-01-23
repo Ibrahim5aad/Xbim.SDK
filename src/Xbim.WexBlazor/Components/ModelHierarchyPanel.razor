@@ -1,9 +1,8 @@
 @using Xbim.WexBlazor.Models
 @using Xbim.WexBlazor.Services
-@using Microsoft.Extensions.DependencyInjection
 @namespace Xbim.WexBlazor.Components
 @implements IDisposable
-@inject IServiceProvider ServiceProvider
+@inject IfcHierarchyService? HierarchyService
 
 <div class="model-hierarchy-panel @CssClass @(IsVisible ? "visible" : "") @(ShowHeader ? "" : "embedded")">
     @if (ShowHeader)
@@ -217,7 +216,6 @@
     private HashSet<(int ProductId, int ModelId)> _selectedProducts = new();
     private bool _isLoading = false;
     private bool _isSubscribed = false;
-    private IfcHierarchyService? _hierarchyService;
 
     protected override void OnParametersSet()
     {
@@ -226,12 +224,6 @@
             Viewer.ModelChanged += OnModelChanged;
             _isSubscribed = true;
         }
-        
-        if (_hierarchyService == null)
-        {
-            _hierarchyService = ServiceProvider.GetService<IfcHierarchyService>();
-        }
-        
         base.OnParametersSet();
     }
 
@@ -274,13 +266,13 @@
                 .ToList();
             
             _spatialStructures.Clear();
-            if (_hierarchyService != null)
+            if (HierarchyService != null)
             {
                 foreach (var model in loadedModels.Values)
                 {
                     if (model.IfcModel != null)
                     {
-                        var structure = _hierarchyService.GetSpatialStructure(model.IfcModel, model.Id);
+                        var structure = HierarchyService.GetSpatialStructure(model.IfcModel, model.Id);
                         if (structure != null)
                         {
                             _spatialStructures.Add(structure);

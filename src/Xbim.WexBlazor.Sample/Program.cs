@@ -72,6 +72,8 @@ var apiPropertySource = new CustomPropertySource(
 propertyService.RegisterSource(apiPropertySource);
 builder.Services.AddSingleton(propertyService);
 
+builder.Services.AddSingleton<IfcHierarchyService>();
+
 await builder.Build().RunAsync();
 
 // Helper functions for mock data
