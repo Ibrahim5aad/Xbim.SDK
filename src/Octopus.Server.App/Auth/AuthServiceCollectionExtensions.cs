@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using Octopus.Server.Abstractions.Auth;
 
 namespace Octopus.Server.App.Auth;
@@ -30,6 +32,68 @@ public static class AuthServiceCollectionExtensions
             .AddScheme<DevAuthenticationOptions, DevAuthenticationHandler>(
                 DevAuthenticationHandler.SchemeName,
                 configureOptions ?? (_ => { }));
+
+        // Add authorization
+        services.AddAuthorization();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds OIDC/JWT bearer authentication mode.
+    /// Validates tokens via Authority and Audience configuration.
+    /// Maps sub/email/name claims and auto-provisions local User via UserProvisioningMiddleware.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="configuration">The configuration containing Auth:OIDC settings.</param>
+    /// <returns>The service collection for chaining.</returns>
+    public static IServiceCollection AddOctopusOidcAuth(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        // Add HttpContextAccessor for IUserContext
+        services.AddHttpContextAccessor();
+
+        // Register IUserContext
+        services.AddScoped<IUserContext, HttpContextUserContext>();
+
+        // Get OIDC configuration
+        var oidcSection = configuration.GetSection("Auth:OIDC");
+        var authority = oidcSection.GetValue<string>("Authority");
+        var audience = oidcSection.GetValue<string>("Audience");
+        var requireHttpsMetadata = oidcSection.GetValue<bool?>("RequireHttpsMetadata") ?? true;
+
+        if (string.IsNullOrEmpty(authority))
+        {
+            throw new InvalidOperationException("Auth:OIDC:Authority must be configured for OIDC authentication mode.");
+        }
+
+        // Configure JWT Bearer authentication
+        services.AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(options =>
+        {
+            options.Authority = authority;
+            options.RequireHttpsMetadata = requireHttpsMetadata;
+
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = !string.IsNullOrEmpty(audience),
+                ValidAudience = audience,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                // Map standard OIDC claims
+                NameClaimType = "name",
+                RoleClaimType = "roles"
+            };
+
+            // Map additional claims from the token
+            options.MapInboundClaims = false; // Preserve original claim names (sub, email, name)
+        });
 
         // Add authorization
         services.AddAuthorization();

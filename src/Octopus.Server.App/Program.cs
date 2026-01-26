@@ -26,11 +26,16 @@ if (authMode.Equals("Development", StringComparison.OrdinalIgnoreCase))
         options.DisplayName = builder.Configuration.GetValue<string>("Auth:Dev:DisplayName") ?? "Development User";
     });
 }
+else if (authMode.Equals("OIDC", StringComparison.OrdinalIgnoreCase))
+{
+    // OIDC/JWT bearer auth mode: validate tokens via Authority + Audience
+    builder.Services.AddOctopusOidcAuth(builder.Configuration);
+}
 else
 {
-    // For other modes (OIDC), just add the user context service
-    // OIDC configuration will be added in M2-003
+    // For unknown modes, just add the user context service
     builder.Services.AddOctopusUserContext();
+    builder.Services.AddAuthorization();
 }
 
 builder.Services.AddEndpointsApiExplorer();
@@ -42,6 +47,35 @@ builder.Services.AddSwaggerGen(options =>
         Version = "v1",
         Description = "BIM backend API for the Octopus platform"
     });
+
+    // Add JWT Bearer authentication support in Swagger UI
+    if (authMode.Equals("OIDC", StringComparison.OrdinalIgnoreCase))
+    {
+        options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+        {
+            Name = "Authorization",
+            Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+            Description = "Enter your JWT token in the format: Bearer {token}"
+        });
+
+        options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+        {
+            {
+                new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+                {
+                    Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                    {
+                        Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                        Id = "Bearer"
+                    }
+                },
+                Array.Empty<string>()
+            }
+        });
+    }
 });
 
 var app = builder.Build();
