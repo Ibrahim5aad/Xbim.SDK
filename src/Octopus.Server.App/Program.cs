@@ -155,6 +155,7 @@ app.MapDefaultEndpoints();
 
 // Map API endpoints
 app.MapWorkspaceEndpoints();
+app.MapProjectEndpoints();
 
 app.MapGet("/healthz", () => Results.Ok(new { status = "healthy" }))
    .WithName("HealthCheck")
