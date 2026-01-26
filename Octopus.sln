@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Octopus.Blazor.Server.Sampl
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Octopus.Server.App", "src\Octopus.Server.App\Octopus.Server.App.csproj", "{192863DB-AFE4-401B-9559-92AA749F0BDB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Octopus.Server.Contracts", "src\Octopus.Server.Contracts\Octopus.Server.Contracts.csproj", "{EAF61798-F224-4B4D-A52E-A6D99AC33E50}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -71,6 +73,18 @@ Global
 		{192863DB-AFE4-401B-9559-92AA749F0BDB}.Release|x64.Build.0 = Release|Any CPU
 		{192863DB-AFE4-401B-9559-92AA749F0BDB}.Release|x86.ActiveCfg = Release|Any CPU
 		{192863DB-AFE4-401B-9559-92AA749F0BDB}.Release|x86.Build.0 = Release|Any CPU
+		{EAF61798-F224-4B4D-A52E-A6D99AC33E50}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EAF61798-F224-4B4D-A52E-A6D99AC33E50}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EAF61798-F224-4B4D-A52E-A6D99AC33E50}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{EAF61798-F224-4B4D-A52E-A6D99AC33E50}.Debug|x64.Build.0 = Debug|Any CPU
+		{EAF61798-F224-4B4D-A52E-A6D99AC33E50}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{EAF61798-F224-4B4D-A52E-A6D99AC33E50}.Debug|x86.Build.0 = Debug|Any CPU
+		{EAF61798-F224-4B4D-A52E-A6D99AC33E50}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EAF61798-F224-4B4D-A52E-A6D99AC33E50}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EAF61798-F224-4B4D-A52E-A6D99AC33E50}.Release|x64.ActiveCfg = Release|Any CPU
+		{EAF61798-F224-4B4D-A52E-A6D99AC33E50}.Release|x64.Build.0 = Release|Any CPU
+		{EAF61798-F224-4B4D-A52E-A6D99AC33E50}.Release|x86.ActiveCfg = Release|Any CPU
+		{EAF61798-F224-4B4D-A52E-A6D99AC33E50}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -80,5 +94,6 @@ Global
 		{21F58AE1-36FD-4E8B-A2ED-51DD6837CC5A} = {5D13C73B-7C64-4902-B548-AF5F955B0680}
 		{DA41BDB1-7305-4616-8DB2-3D1632006CB4} = {5D13C73B-7C64-4902-B548-AF5F955B0680}
 		{192863DB-AFE4-401B-9559-92AA749F0BDB} = {5D13C73B-7C64-4902-B548-AF5F955B0680}
+		{EAF61798-F224-4B4D-A52E-A6D99AC33E50} = {5D13C73B-7C64-4902-B548-AF5F955B0680}
 	EndGlobalSection
 EndGlobal
