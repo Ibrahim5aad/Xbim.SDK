@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Octopus.Server.Abstractions.Auth;
 using Octopus.Server.App.Auth;
+using Octopus.Server.Domain.Enums;
 using Octopus.Server.Persistence.EfCore;
 using Octopus.Server.Persistence.EfCore.Extensions;
 
@@ -87,6 +88,47 @@ using (var scope = app.Services.CreateScope())
     dbContext.Database.Migrate();
 }
 
+// Global exception handler for authorization exceptions
+app.UseExceptionHandler(exceptionHandlerApp =>
+{
+    exceptionHandlerApp.Run(async context =>
+    {
+        var exceptionHandlerFeature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>();
+        var exception = exceptionHandlerFeature?.Error;
+
+        if (exception is Octopus.Server.App.Auth.ForbiddenAccessException)
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsJsonAsync(new
+            {
+                error = "Forbidden",
+                message = exception.Message
+            });
+        }
+        else if (exception is UnauthorizedAccessException)
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsJsonAsync(new
+            {
+                error = "Unauthorized",
+                message = exception.Message
+            });
+        }
+        else
+        {
+            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsJsonAsync(new
+            {
+                error = "Internal Server Error",
+                message = app.Environment.IsDevelopment() ? exception?.Message : "An unexpected error occurred."
+            });
+        }
+    });
+});
+
 app.UseSwagger();
 app.UseSwaggerUI(options =>
 {
@@ -126,6 +168,68 @@ app.MapGet("/api/v1/me", (IUserContext userContext) =>
     });
 })
 .WithName("GetCurrentUser")
+.WithOpenApi()
+.RequireAuthorization();
+
+// RBAC test endpoint: Check workspace access
+app.MapGet("/api/v1/workspaces/{workspaceId}/check-access", async (
+    Guid workspaceId,
+    IAuthorizationService authZ,
+    CancellationToken cancellationToken) =>
+{
+    var role = await authZ.GetWorkspaceRoleAsync(workspaceId, cancellationToken);
+    return Results.Ok(new
+    {
+        workspaceId,
+        hasAccess = role.HasValue,
+        role = role?.ToString()
+    });
+})
+.WithName("CheckWorkspaceAccess")
+.WithOpenApi()
+.RequireAuthorization();
+
+// RBAC test endpoint: Require workspace access (returns 403 if not authorized)
+app.MapGet("/api/v1/workspaces/{workspaceId}/require-admin", async (
+    Guid workspaceId,
+    IAuthorizationService authZ,
+    CancellationToken cancellationToken) =>
+{
+    await authZ.RequireWorkspaceAccessAsync(workspaceId, WorkspaceRole.Admin, cancellationToken);
+    return Results.Ok(new { message = "Access granted", workspaceId });
+})
+.WithName("RequireWorkspaceAdmin")
+.WithOpenApi()
+.RequireAuthorization();
+
+// RBAC test endpoint: Check project access
+app.MapGet("/api/v1/projects/{projectId}/check-access", async (
+    Guid projectId,
+    IAuthorizationService authZ,
+    CancellationToken cancellationToken) =>
+{
+    var role = await authZ.GetProjectRoleAsync(projectId, cancellationToken);
+    return Results.Ok(new
+    {
+        projectId,
+        hasAccess = role.HasValue,
+        role = role?.ToString()
+    });
+})
+.WithName("CheckProjectAccess")
+.WithOpenApi()
+.RequireAuthorization();
+
+// RBAC test endpoint: Require project admin access (returns 403 if not authorized)
+app.MapGet("/api/v1/projects/{projectId}/require-admin", async (
+    Guid projectId,
+    IAuthorizationService authZ,
+    CancellationToken cancellationToken) =>
+{
+    await authZ.RequireProjectAccessAsync(projectId, ProjectRole.ProjectAdmin, cancellationToken);
+    return Results.Ok(new { message = "Access granted", projectId });
+})
+.WithName("RequireProjectAdmin")
 .WithOpenApi()
 .RequireAuthorization();
 

@@ -6,6 +6,18 @@ using Octopus.Server.Abstractions.Auth;
 namespace Octopus.Server.App.Auth;
 
 /// <summary>
+/// Options for configuring the Octopus authorization service.
+/// </summary>
+public class OctopusAuthorizationOptions
+{
+    /// <summary>
+    /// Gets or sets whether workspace Members have implicit Viewer access to all projects in the workspace.
+    /// Default is true.
+    /// </summary>
+    public bool WorkspaceMemberImplicitProjectAccess { get; set; } = true;
+}
+
+/// <summary>
 /// Extension methods for configuring authentication in Octopus.Server.
 /// </summary>
 public static class AuthServiceCollectionExtensions
@@ -26,6 +38,9 @@ public static class AuthServiceCollectionExtensions
 
         // Register IUserContext
         services.AddScoped<IUserContext, HttpContextUserContext>();
+
+        // Register IAuthorizationService
+        services.AddScoped<IAuthorizationService, AuthorizationService>();
 
         // Configure authentication
         services.AddAuthentication(DevAuthenticationHandler.SchemeName)
@@ -56,6 +71,9 @@ public static class AuthServiceCollectionExtensions
 
         // Register IUserContext
         services.AddScoped<IUserContext, HttpContextUserContext>();
+
+        // Register IAuthorizationService
+        services.AddScoped<IAuthorizationService, AuthorizationService>();
 
         // Get OIDC configuration
         var oidcSection = configuration.GetSection("Auth:OIDC");
@@ -111,6 +129,7 @@ public static class AuthServiceCollectionExtensions
     {
         services.AddHttpContextAccessor();
         services.AddScoped<IUserContext, HttpContextUserContext>();
+        services.AddScoped<IAuthorizationService, AuthorizationService>();
         return services;
     }
 }

@@ -22,6 +22,7 @@
     <ProjectReference Include="..\Octopus.ServiceDefaults\Octopus.ServiceDefaults.csproj" />
     <ProjectReference Include="..\Octopus.Server.Persistence.EfCore\Octopus.Server.Persistence.EfCore.csproj" />
     <ProjectReference Include="..\Octopus.Server.Abstractions\Octopus.Server.Abstractions.csproj" />
+    <ProjectReference Include="..\Octopus.Server.Domain\Octopus.Server.Domain.csproj" />
   </ItemGroup>
 
 </Project>
