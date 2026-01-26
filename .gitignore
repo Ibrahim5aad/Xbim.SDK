@@ -2,8 +2,8 @@
 **/wwwroot/js/*.js
 **/wwwroot/js/*.js.map
 
-## Documentation - tracked in repo
-## docs/ folder is tracked for PRD, feature_list, and progress files
+## Documentation - local only, not tracked
+docs/
 
 ## Node.js
 node_modules/
