@@ -24,6 +24,8 @@
     <ProjectReference Include="..\Octopus.Server.Abstractions\Octopus.Server.Abstractions.csproj" />
     <ProjectReference Include="..\Octopus.Server.Domain\Octopus.Server.Domain.csproj" />
     <ProjectReference Include="..\Octopus.Server.Contracts\Octopus.Server.Contracts.csproj" />
+    <ProjectReference Include="..\Octopus.Server.Storage.AzureBlob\Octopus.Server.Storage.AzureBlob.csproj" />
+    <ProjectReference Include="..\Octopus.Server.Storage.LocalDisk\Octopus.Server.Storage.LocalDisk.csproj" />
   </ItemGroup>
 
 </Project>

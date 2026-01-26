@@ -1,9 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using Octopus.Server.Abstractions.Auth;
+using Octopus.Server.Abstractions.Storage;
 using Octopus.Server.App.Auth;
 using Octopus.Server.App.Endpoints;
 using Octopus.Server.Persistence.EfCore;
 using Octopus.Server.Persistence.EfCore.Extensions;
+using Octopus.Server.Storage.AzureBlob;
+using Octopus.Server.Storage.LocalDisk;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +19,21 @@ if (!builder.Environment.EnvironmentName.Equals("Testing", StringComparison.Ordi
 {
     var connectionString = builder.Configuration.GetConnectionString("OctopusDb") ?? "Data Source=octopus.db";
     builder.Services.AddOctopusSqlite(connectionString);
+}
+
+// Configure storage provider based on configuration
+// Supported providers: "LocalDisk" (default), "AzureBlob"
+var storageProvider = builder.Configuration.GetValue<string>("Storage:Provider") ?? "LocalDisk";
+
+if (storageProvider.Equals("AzureBlob", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddAzureBlobStorage(builder.Configuration.GetSection("Storage:AzureBlob"));
+}
+else
+{
+    // Default to LocalDisk for development
+    var basePath = builder.Configuration.GetValue<string>("Storage:LocalDisk:BasePath") ?? "octopus-storage";
+    builder.Services.AddLocalDiskStorage(basePath);
 }
 
 // Configure authentication mode based on configuration
