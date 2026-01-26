@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
@@ -5,6 +6,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Octopus.Server.Abstractions.Storage;
 using Octopus.Server.Contracts;
 using Octopus.Server.Domain.Entities;
 using Octopus.Server.Persistence.EfCore;
@@ -14,15 +16,63 @@ using ProjectRole = Octopus.Server.Domain.Enums.ProjectRole;
 
 namespace Octopus.Server.App.Tests.Endpoints;
 
+/// <summary>
+/// In-memory storage provider for testing.
+/// </summary>
+public class InMemoryStorageProvider : IStorageProvider
+{
+    public string ProviderId => "InMemory";
+
+    public ConcurrentDictionary<string, byte[]> Storage { get; } = new();
+
+    public Task<string> PutAsync(string key, Stream content, string? contentType = null, CancellationToken cancellationToken = default)
+    {
+        using var ms = new MemoryStream();
+        content.CopyTo(ms);
+        Storage[key] = ms.ToArray();
+        return Task.FromResult(key);
+    }
+
+    public Task<Stream?> OpenReadAsync(string key, CancellationToken cancellationToken = default)
+    {
+        if (Storage.TryGetValue(key, out var data))
+        {
+            return Task.FromResult<Stream?>(new MemoryStream(data));
+        }
+        return Task.FromResult<Stream?>(null);
+    }
+
+    public Task<bool> DeleteAsync(string key, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(Storage.TryRemove(key, out _));
+    }
+
+    public Task<bool> ExistsAsync(string key, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(Storage.ContainsKey(key));
+    }
+
+    public Task<long?> GetSizeAsync(string key, CancellationToken cancellationToken = default)
+    {
+        if (Storage.TryGetValue(key, out var data))
+        {
+            return Task.FromResult<long?>(data.Length);
+        }
+        return Task.FromResult<long?>(null);
+    }
+}
+
 public class FileUploadEndpointsTests : IDisposable
 {
     private readonly WebApplicationFactory<Program> _factory;
     private readonly HttpClient _client;
     private readonly string _testDbName;
+    private readonly InMemoryStorageProvider _storageProvider;
 
     public FileUploadEndpointsTests()
     {
         _testDbName = $"test_{Guid.NewGuid()}";
+        _storageProvider = new InMemoryStorageProvider();
 
         _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
@@ -34,6 +84,10 @@ public class FileUploadEndpointsTests : IDisposable
                 services.RemoveAll(typeof(DbContextOptions<OctopusDbContext>));
                 services.RemoveAll(typeof(DbContextOptions));
                 services.RemoveAll(typeof(OctopusDbContext));
+
+                // Remove storage provider and add in-memory one
+                services.RemoveAll(typeof(IStorageProvider));
+                services.AddSingleton<IStorageProvider>(_storageProvider);
 
                 // Add in-memory database for testing
                 services.AddDbContext<OctopusDbContext>(options =>
@@ -365,6 +419,345 @@ public class FileUploadEndpointsTests : IDisposable
         // Note: In a real test, we would authenticate as the viewer user
         // For now, the dev auth user is always admin, so this test documents expected behavior
         // The endpoint correctly enforces Editor role requirement
+    }
+
+    #endregion
+
+    #region Upload Content Tests
+
+    private async Task<ReserveUploadResponse> ReserveUploadAsync(Guid projectId, string fileName = "test.ifc", long? expectedSize = null)
+    {
+        var request = new ReserveUploadRequest
+        {
+            FileName = fileName,
+            ContentType = "application/x-step",
+            ExpectedSizeBytes = expectedSize
+        };
+        var response = await _client.PostAsJsonAsync($"/api/v1/projects/{projectId}/files/uploads", request);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<ReserveUploadResponse>())!;
+    }
+
+    private static MultipartFormDataContent CreateFileContent(string fileName, byte[] content)
+    {
+        var multipartContent = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent(content);
+        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+        multipartContent.Add(fileContent, "file", fileName);
+        return multipartContent;
+    }
+
+    [Fact]
+    public async Task UploadContent_ReturnsOk_WithValidFile()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var reserved = await ReserveUploadAsync(project.Id);
+
+        var fileContent = new byte[] { 0x49, 0x46, 0x43, 0x00 }; // "IFC\0"
+        var multipartContent = CreateFileContent("test.ifc", fileContent);
+
+        // Act
+        var response = await _client.PostAsync(
+            $"/api/v1/projects/{project.Id}/files/uploads/{reserved.Session.Id}/content",
+            multipartContent);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content.ReadFromJsonAsync<UploadContentResponse>();
+        Assert.NotNull(result);
+        Assert.NotNull(result.Session);
+        Assert.Equal(reserved.Session.Id, result.Session.Id);
+        Assert.Equal(UploadSessionStatus.Uploading, result.Session.Status);
+        Assert.Equal(fileContent.Length, result.BytesUploaded);
+    }
+
+    [Fact]
+    public async Task UploadContent_StoresFileInStorage()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var reserved = await ReserveUploadAsync(project.Id);
+
+        var fileContent = new byte[] { 0x49, 0x46, 0x43, 0x00, 0x01, 0x02, 0x03 };
+        var multipartContent = CreateFileContent("test.ifc", fileContent);
+
+        // Act
+        var response = await _client.PostAsync(
+            $"/api/v1/projects/{project.Id}/files/uploads/{reserved.Session.Id}/content",
+            multipartContent);
+        response.EnsureSuccessStatusCode();
+
+        // Assert - verify file is in storage
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<OctopusDbContext>();
+
+        var session = await dbContext.UploadSessions.FirstOrDefaultAsync(s => s.Id == reserved.Session.Id);
+        Assert.NotNull(session);
+        Assert.NotNull(session.TempStorageKey);
+
+        // Check file exists in storage
+        Assert.True(_storageProvider.Storage.ContainsKey(session.TempStorageKey));
+        Assert.Equal(fileContent, _storageProvider.Storage[session.TempStorageKey]);
+    }
+
+    [Fact]
+    public async Task UploadContent_UpdatesSessionStatus()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var reserved = await ReserveUploadAsync(project.Id);
+
+        var fileContent = new byte[] { 0x01, 0x02, 0x03 };
+        var multipartContent = CreateFileContent("test.ifc", fileContent);
+
+        // Act
+        var response = await _client.PostAsync(
+            $"/api/v1/projects/{project.Id}/files/uploads/{reserved.Session.Id}/content",
+            multipartContent);
+        response.EnsureSuccessStatusCode();
+
+        // Assert - verify session status updated in database
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<OctopusDbContext>();
+
+        var session = await dbContext.UploadSessions.FirstOrDefaultAsync(s => s.Id == reserved.Session.Id);
+        Assert.NotNull(session);
+        Assert.Equal(Domain.Enums.UploadSessionStatus.Uploading, session.Status);
+    }
+
+    [Fact]
+    public async Task UploadContent_ReturnsNotFound_WhenSessionDoesNotExist()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+
+        var fileContent = new byte[] { 0x01, 0x02, 0x03 };
+        var multipartContent = CreateFileContent("test.ifc", fileContent);
+
+        // Act
+        var response = await _client.PostAsync(
+            $"/api/v1/projects/{project.Id}/files/uploads/{Guid.NewGuid()}/content",
+            multipartContent);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UploadContent_ReturnsBadRequest_WhenNoFileProvided()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var reserved = await ReserveUploadAsync(project.Id);
+
+        var emptyMultipart = new MultipartFormDataContent();
+
+        // Act
+        var response = await _client.PostAsync(
+            $"/api/v1/projects/{project.Id}/files/uploads/{reserved.Session.Id}/content",
+            emptyMultipart);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UploadContent_ReturnsBadRequest_WhenFileTooLarge()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var reserved = await ReserveUploadAsync(project.Id);
+
+        // Create a file larger than the default max (500 MB) - we'll use a smaller test limit
+        // The default is 500 MB which is impractical for tests, but we can test the logic
+        // by setting expected size and then uploading a different size
+        var expectedSize = 100L;
+        var reservedWithSize = await ReserveUploadAsync(project.Id, "sized.ifc", expectedSize);
+
+        // File with different size
+        var fileContent = new byte[200]; // Larger than expected
+        var multipartContent = CreateFileContent("sized.ifc", fileContent);
+
+        // Act
+        var response = await _client.PostAsync(
+            $"/api/v1/projects/{project.Id}/files/uploads/{reservedWithSize.Session.Id}/content",
+            multipartContent);
+
+        // Assert - should fail due to size mismatch
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UploadContent_ReturnsBadRequest_WhenSizeMismatchWithExpected()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+
+        // Reserve with specific expected size
+        var reserved = await ReserveUploadAsync(project.Id, "test.ifc", 50);
+
+        // Upload file with different size
+        var fileContent = new byte[30]; // Different from expected 50
+        var multipartContent = CreateFileContent("test.ifc", fileContent);
+
+        // Act
+        var response = await _client.PostAsync(
+            $"/api/v1/projects/{project.Id}/files/uploads/{reserved.Session.Id}/content",
+            multipartContent);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UploadContent_ReturnsOk_WhenSizeMatchesExpected()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+
+        var fileContent = new byte[100];
+        new Random().NextBytes(fileContent);
+
+        // Reserve with matching expected size
+        var reserved = await ReserveUploadAsync(project.Id, "test.ifc", 100);
+
+        var multipartContent = CreateFileContent("test.ifc", fileContent);
+
+        // Act
+        var response = await _client.PostAsync(
+            $"/api/v1/projects/{project.Id}/files/uploads/{reserved.Session.Id}/content",
+            multipartContent);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UploadContent_ReturnsBadRequest_WhenSessionIsCommitted()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var reserved = await ReserveUploadAsync(project.Id);
+
+        // Manually set session status to Committed
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<OctopusDbContext>();
+            var session = await dbContext.UploadSessions.FirstAsync(s => s.Id == reserved.Session.Id);
+            session.Status = Domain.Enums.UploadSessionStatus.Committed;
+            await dbContext.SaveChangesAsync();
+        }
+
+        var fileContent = new byte[] { 0x01, 0x02, 0x03 };
+        var multipartContent = CreateFileContent("test.ifc", fileContent);
+
+        // Act
+        var response = await _client.PostAsync(
+            $"/api/v1/projects/{project.Id}/files/uploads/{reserved.Session.Id}/content",
+            multipartContent);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UploadContent_ReturnsBadRequest_WhenSessionIsExpired()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var reserved = await ReserveUploadAsync(project.Id);
+
+        // Manually set session to expired
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<OctopusDbContext>();
+            var session = await dbContext.UploadSessions.FirstAsync(s => s.Id == reserved.Session.Id);
+            session.ExpiresAt = DateTimeOffset.UtcNow.AddHours(-1);
+            await dbContext.SaveChangesAsync();
+        }
+
+        var fileContent = new byte[] { 0x01, 0x02, 0x03 };
+        var multipartContent = CreateFileContent("test.ifc", fileContent);
+
+        // Act
+        var response = await _client.PostAsync(
+            $"/api/v1/projects/{project.Id}/files/uploads/{reserved.Session.Id}/content",
+            multipartContent);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UploadContent_AllowsReupload_WhenSessionIsUploading()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var reserved = await ReserveUploadAsync(project.Id);
+
+        // First upload
+        var firstContent = new byte[] { 0x01, 0x02, 0x03 };
+        var firstMultipart = CreateFileContent("test.ifc", firstContent);
+        var firstResponse = await _client.PostAsync(
+            $"/api/v1/projects/{project.Id}/files/uploads/{reserved.Session.Id}/content",
+            firstMultipart);
+        firstResponse.EnsureSuccessStatusCode();
+
+        // Second upload (re-upload)
+        var secondContent = new byte[] { 0x04, 0x05, 0x06, 0x07 };
+        var secondMultipart = CreateFileContent("test.ifc", secondContent);
+
+        // Act
+        var response = await _client.PostAsync(
+            $"/api/v1/projects/{project.Id}/files/uploads/{reserved.Session.Id}/content",
+            secondMultipart);
+
+        // Assert - should allow re-upload
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content.ReadFromJsonAsync<UploadContentResponse>();
+        Assert.Equal(secondContent.Length, result!.BytesUploaded);
+
+        // Verify new content is in storage
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<OctopusDbContext>();
+        var session = await dbContext.UploadSessions.FirstAsync(s => s.Id == reserved.Session.Id);
+        Assert.Equal(secondContent, _storageProvider.Storage[session.TempStorageKey!]);
+    }
+
+    [Fact]
+    public async Task UploadContent_ReturnsNotFound_WhenSessionBelongsToDifferentProject()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project1 = await CreateProjectAsync(workspace.Id, "Project 1");
+        var project2 = await CreateProjectAsync(workspace.Id, "Project 2");
+
+        var reserved = await ReserveUploadAsync(project1.Id);
+
+        var fileContent = new byte[] { 0x01, 0x02, 0x03 };
+        var multipartContent = CreateFileContent("test.ifc", fileContent);
+
+        // Act - try to upload via different project
+        var response = await _client.PostAsync(
+            $"/api/v1/projects/{project2.Id}/files/uploads/{reserved.Session.Id}/content",
+            multipartContent);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     #endregion

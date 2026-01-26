@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Octopus.Server.Abstractions.Auth;
+using Octopus.Server.Abstractions.Storage;
 using Octopus.Server.App.Storage;
 using Octopus.Server.Contracts;
 using Octopus.Server.Domain.Entities;
@@ -42,6 +43,11 @@ public static class FileUploadEndpoints
         uploadGroup.MapGet("/{sessionId:guid}", GetUploadSession)
             .WithName("GetUploadSession")
             .WithOpenApi();
+
+        uploadGroup.MapPost("/{sessionId:guid}/content", UploadContent)
+            .WithName("UploadContent")
+            .WithOpenApi()
+            .DisableAntiforgery();
 
         return app;
     }
@@ -170,6 +176,155 @@ public static class FileUploadEndpoints
         }
 
         return Results.Ok(MapToDto(session));
+    }
+
+    /// <summary>
+    /// Uploads content to an existing upload session via multipart form data.
+    /// Requires at least Editor role in the project.
+    /// </summary>
+    private static async Task<IResult> UploadContent(
+        Guid projectId,
+        Guid sessionId,
+        HttpRequest request,
+        IUserContext userContext,
+        IAuthorizationService authZ,
+        OctopusDbContext dbContext,
+        IStorageProvider storageProvider,
+        IConfiguration configuration,
+        CancellationToken cancellationToken)
+    {
+        if (!userContext.IsAuthenticated || !userContext.UserId.HasValue)
+        {
+            return Results.Unauthorized();
+        }
+
+        // Require at least Editor role to upload files
+        await authZ.RequireProjectAccessAsync(projectId, ProjectRole.Editor, cancellationToken);
+
+        // Get the session
+        var session = await dbContext.UploadSessions
+            .FirstOrDefaultAsync(s => s.Id == sessionId && s.ProjectId == projectId, cancellationToken);
+
+        if (session == null)
+        {
+            return Results.NotFound(new { error = "Not Found", message = "Upload session not found." });
+        }
+
+        // Validate session status - must be Reserved or Uploading
+        if (session.Status != DomainUploadSessionStatus.Reserved &&
+            session.Status != DomainUploadSessionStatus.Uploading)
+        {
+            return Results.BadRequest(new
+            {
+                error = "Invalid Session State",
+                message = $"Cannot upload to session with status '{session.Status}'."
+            });
+        }
+
+        // Validate session hasn't expired
+        if (session.ExpiresAt < DateTimeOffset.UtcNow)
+        {
+            session.Status = DomainUploadSessionStatus.Expired;
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            return Results.BadRequest(new
+            {
+                error = "Session Expired",
+                message = "The upload session has expired."
+            });
+        }
+
+        // Check content type is multipart/form-data
+        if (!request.HasFormContentType)
+        {
+            return Results.BadRequest(new
+            {
+                error = "Invalid Content Type",
+                message = "Content-Type must be multipart/form-data."
+            });
+        }
+
+        // Get the form with file
+        IFormFile? file;
+        try
+        {
+            var form = await request.ReadFormAsync(cancellationToken);
+            file = form.Files.FirstOrDefault();
+        }
+        catch (Exception)
+        {
+            return Results.BadRequest(new
+            {
+                error = "Invalid Form Data",
+                message = "Could not read form data from request."
+            });
+        }
+
+        if (file == null || file.Length == 0)
+        {
+            return Results.BadRequest(new
+            {
+                error = "No File",
+                message = "No file was provided in the request."
+            });
+        }
+
+        // Get max file size from configuration or use default
+        var maxFileSize = configuration.GetValue<long?>("Upload:MaxFileSizeBytes") ?? DefaultMaxFileSizeBytes;
+
+        // Validate file size
+        if (file.Length > maxFileSize)
+        {
+            return Results.BadRequest(new
+            {
+                error = "File Too Large",
+                message = $"File size ({file.Length} bytes) exceeds maximum allowed size ({maxFileSize} bytes)."
+            });
+        }
+
+        // Validate against expected size if specified
+        if (session.ExpectedSizeBytes.HasValue && file.Length != session.ExpectedSizeBytes.Value)
+        {
+            return Results.BadRequest(new
+            {
+                error = "Size Mismatch",
+                message = $"File size ({file.Length} bytes) does not match expected size ({session.ExpectedSizeBytes.Value} bytes)."
+            });
+        }
+
+        // Upload the file to storage
+        if (string.IsNullOrEmpty(session.TempStorageKey))
+        {
+            return Results.Problem("Upload session is missing storage key.");
+        }
+
+        try
+        {
+            await using var stream = file.OpenReadStream();
+            await storageProvider.PutAsync(
+                session.TempStorageKey,
+                stream,
+                session.ContentType ?? file.ContentType,
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            // Log and return error
+            return Results.Problem($"Failed to store file: {ex.Message}");
+        }
+
+        // Update session status to Uploading
+        session.Status = DomainUploadSessionStatus.Uploading;
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        // Return response
+        var response = new UploadContentResponse
+        {
+            Session = MapToDto(session),
+            BytesUploaded = file.Length
+        };
+
+        return Results.Ok(response);
     }
 
     private static UploadSessionDto MapToDto(UploadSession session)

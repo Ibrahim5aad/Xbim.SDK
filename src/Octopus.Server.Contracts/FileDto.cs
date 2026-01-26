@@ -136,3 +136,19 @@ public record UploadConstraints
     /// </summary>
     public DateTimeOffset SessionExpiresAt { get; init; }
 }
+
+/// <summary>
+/// Response returned after uploading content to an upload session.
+/// </summary>
+public record UploadContentResponse
+{
+    /// <summary>
+    /// The updated upload session.
+    /// </summary>
+    public UploadSessionDto Session { get; init; } = null!;
+
+    /// <summary>
+    /// The number of bytes uploaded.
+    /// </summary>
+    public long BytesUploaded { get; init; }
+}
