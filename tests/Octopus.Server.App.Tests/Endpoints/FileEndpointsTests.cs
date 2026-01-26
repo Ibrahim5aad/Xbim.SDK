@@ -573,4 +573,290 @@ public class FileEndpointsTests : IDisposable
     }
 
     #endregion
+
+    #region Get File Tests
+
+    [Fact]
+    public async Task GetFile_ReturnsOk_WithValidFile()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+
+        var fileContent = new byte[] { 0x01, 0x02, 0x03, 0x04 };
+        var uploadedFile = await UploadFileAsync(project.Id, "test-model.ifc", fileContent);
+
+        // Act
+        var response = await _client.GetAsync($"/api/v1/files/{uploadedFile.Id}");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var file = await response.Content.ReadFromJsonAsync<FileDto>();
+        Assert.NotNull(file);
+        Assert.Equal(uploadedFile.Id, file.Id);
+        Assert.Equal(project.Id, file.ProjectId);
+        Assert.Equal("test-model.ifc", file.Name);
+        Assert.Equal(fileContent.Length, file.SizeBytes);
+        Assert.Equal(FileKind.Source, file.Kind);
+        Assert.Equal(FileCategory.Ifc, file.Category);
+    }
+
+    [Fact]
+    public async Task GetFile_ReturnsAllMetadata()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+
+        var fileContent = new byte[] { 0xDE, 0xAD, 0xBE, 0xEF };
+        var uploadedFile = await UploadFileAsync(project.Id, "document.pdf", fileContent);
+
+        // Act
+        var response = await _client.GetAsync($"/api/v1/files/{uploadedFile.Id}");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var file = await response.Content.ReadFromJsonAsync<FileDto>();
+        Assert.NotNull(file);
+        Assert.Equal(uploadedFile.Id, file.Id);
+        Assert.Equal(project.Id, file.ProjectId);
+        Assert.Equal("document.pdf", file.Name);
+        Assert.Equal("application/octet-stream", file.ContentType);
+        Assert.Equal(fileContent.Length, file.SizeBytes);
+        Assert.NotEmpty(file.StorageProvider);
+        Assert.NotEmpty(file.StorageKey);
+        Assert.False(file.IsDeleted);
+        Assert.NotEqual(default, file.CreatedAt);
+    }
+
+    [Fact]
+    public async Task GetFile_ReturnsNotFound_WhenFileDoesNotExist()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+
+        var nonExistentFileId = Guid.NewGuid();
+
+        // Act
+        var response = await _client.GetAsync($"/api/v1/files/{nonExistentFileId}");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetFile_ReturnsNotFound_WhenFileInAnotherWorkspace()
+    {
+        // Arrange - Create file in first workspace
+        var workspace1 = await CreateWorkspaceAsync("Workspace 1");
+        var project1 = await CreateProjectAsync(workspace1.Id, "Project 1");
+        var file1 = await UploadFileAsync(project1.Id, "file-in-workspace1.ifc", new byte[] { 0x01 });
+
+        // Create second workspace that the user has access to
+        var workspace2 = await CreateWorkspaceAsync("Workspace 2");
+        var project2 = await CreateProjectAsync(workspace2.Id, "Project 2");
+
+        // Simulate a different user trying to access workspace1's file
+        // In dev mode, the same user has access to both workspaces they created
+        // So we need to create a file with direct DB manipulation in a project where user has no access
+
+        // Create file directly in a project where the user has no membership
+        Guid otherProjectId;
+        Guid otherFileId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<OctopusDbContext>();
+
+            // Create a separate workspace/project without membership
+            var otherWorkspace = new Workspace
+            {
+                Id = Guid.NewGuid(),
+                Name = "Other Workspace",
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+            dbContext.Workspaces.Add(otherWorkspace);
+
+            var otherProject = new Project
+            {
+                Id = Guid.NewGuid(),
+                WorkspaceId = otherWorkspace.Id,
+                Name = "Other Project",
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+            dbContext.Projects.Add(otherProject);
+            otherProjectId = otherProject.Id;
+
+            var otherFile = new FileEntity
+            {
+                Id = Guid.NewGuid(),
+                ProjectId = otherProject.Id,
+                Name = "secret-file.ifc",
+                ContentType = "application/octet-stream",
+                SizeBytes = 1000,
+                Kind = DomainFileKind.Source,
+                Category = DomainFileCategory.Ifc,
+                StorageProvider = "InMemory",
+                StorageKey = $"other/{Guid.NewGuid():N}",
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+            dbContext.Files.Add(otherFile);
+            otherFileId = otherFile.Id;
+
+            await dbContext.SaveChangesAsync();
+        }
+
+        // Act - Try to access file from other workspace (user has no access)
+        var response = await _client.GetAsync($"/api/v1/files/{otherFileId}");
+
+        // Assert - Should return 404 (not 403) to avoid leaking file existence
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetFile_ReturnsNotFound_WhenUserHasNoProjectAccess()
+    {
+        // Arrange
+        Guid fileId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<OctopusDbContext>();
+
+            // Create workspace/project/file without any user membership
+            var workspace = new Workspace
+            {
+                Id = Guid.NewGuid(),
+                Name = "No Access Workspace",
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+            dbContext.Workspaces.Add(workspace);
+
+            var project = new Project
+            {
+                Id = Guid.NewGuid(),
+                WorkspaceId = workspace.Id,
+                Name = "No Access Project",
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+            dbContext.Projects.Add(project);
+
+            var file = new FileEntity
+            {
+                Id = Guid.NewGuid(),
+                ProjectId = project.Id,
+                Name = "protected-file.ifc",
+                ContentType = "application/octet-stream",
+                SizeBytes = 500,
+                Kind = DomainFileKind.Source,
+                Category = DomainFileCategory.Ifc,
+                StorageProvider = "InMemory",
+                StorageKey = $"protected/{Guid.NewGuid():N}",
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+            dbContext.Files.Add(file);
+            fileId = file.Id;
+
+            await dbContext.SaveChangesAsync();
+        }
+
+        // Act
+        var response = await _client.GetAsync($"/api/v1/files/{fileId}");
+
+        // Assert - Returns 404 to avoid exposing file existence
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetFile_ReturnsDeletedFile_WhenRequested()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+
+        Guid deletedFileId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<OctopusDbContext>();
+
+            var deletedFile = new FileEntity
+            {
+                Id = Guid.NewGuid(),
+                ProjectId = project.Id,
+                Name = "deleted-file.ifc",
+                ContentType = "application/octet-stream",
+                SizeBytes = 100,
+                Kind = DomainFileKind.Source,
+                Category = DomainFileCategory.Ifc,
+                StorageProvider = "InMemory",
+                StorageKey = $"deleted/{Guid.NewGuid():N}",
+                IsDeleted = true,
+                DeletedAt = DateTimeOffset.UtcNow,
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+            dbContext.Files.Add(deletedFile);
+            deletedFileId = deletedFile.Id;
+
+            await dbContext.SaveChangesAsync();
+        }
+
+        // Act - Get deleted file by ID (should still be accessible by direct ID lookup)
+        var response = await _client.GetAsync($"/api/v1/files/{deletedFileId}");
+
+        // Assert - Deleted files are still accessible by ID (just not listed)
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var file = await response.Content.ReadFromJsonAsync<FileDto>();
+        Assert.NotNull(file);
+        Assert.True(file.IsDeleted);
+        Assert.NotNull(file.DeletedAt);
+    }
+
+    [Fact]
+    public async Task GetFile_ReturnsCorrectKindAndCategory_ForArtifact()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+
+        // Create an artifact file directly
+        Guid artifactFileId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<OctopusDbContext>();
+
+            var artifactFile = new FileEntity
+            {
+                Id = Guid.NewGuid(),
+                ProjectId = project.Id,
+                Name = "model.wexbim",
+                ContentType = "application/octet-stream",
+                SizeBytes = 2000,
+                Kind = DomainFileKind.Artifact,
+                Category = DomainFileCategory.WexBim,
+                StorageProvider = "InMemory",
+                StorageKey = $"artifacts/{Guid.NewGuid():N}",
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+            dbContext.Files.Add(artifactFile);
+            artifactFileId = artifactFile.Id;
+
+            await dbContext.SaveChangesAsync();
+        }
+
+        // Act
+        var response = await _client.GetAsync($"/api/v1/files/{artifactFileId}");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var file = await response.Content.ReadFromJsonAsync<FileDto>();
+        Assert.NotNull(file);
+        Assert.Equal(FileKind.Artifact, file.Kind);
+        Assert.Equal(FileCategory.WexBim, file.Category);
+        Assert.Equal("model.wexbim", file.Name);
+    }
+
+    #endregion
 }

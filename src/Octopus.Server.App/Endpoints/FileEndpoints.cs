@@ -28,7 +28,69 @@ public static class FileEndpoints
             .WithName("ListFiles")
             .WithOpenApi();
 
+        // File-scoped endpoints (access by file ID)
+        var filesGroup = app.MapGroup("/api/v1/files")
+            .WithTags("Files")
+            .RequireAuthorization();
+
+        filesGroup.MapGet("/{fileId:guid}", GetFile)
+            .WithName("GetFile")
+            .WithOpenApi();
+
         return app;
+    }
+
+    /// <summary>
+    /// Gets a file by its ID.
+    /// Requires at least Viewer role in the project that contains the file.
+    /// </summary>
+    private static async Task<IResult> GetFile(
+        Guid fileId,
+        IUserContext userContext,
+        IAuthorizationService authZ,
+        OctopusDbContext dbContext,
+        CancellationToken cancellationToken = default)
+    {
+        if (!userContext.IsAuthenticated)
+        {
+            return Results.Unauthorized();
+        }
+
+        // Find the file
+        var file = await dbContext.Files
+            .AsNoTracking()
+            .FirstOrDefaultAsync(f => f.Id == fileId, cancellationToken);
+
+        if (file == null)
+        {
+            return Results.NotFound(new { error = "Not Found", message = "File not found." });
+        }
+
+        // Check project access - returns 404 if no access to avoid exposing file existence
+        if (!await authZ.CanAccessProjectAsync(file.ProjectId, ProjectRole.Viewer, cancellationToken))
+        {
+            return Results.NotFound(new { error = "Not Found", message = "File not found." });
+        }
+
+        // Map to DTO
+        var fileDto = new FileDto
+        {
+            Id = file.Id,
+            ProjectId = file.ProjectId,
+            Name = file.Name,
+            ContentType = file.ContentType,
+            SizeBytes = file.SizeBytes,
+            Checksum = file.Checksum,
+            Kind = (FileKind)(int)file.Kind,
+            Category = (FileCategory)(int)file.Category,
+            StorageProvider = file.StorageProvider,
+            StorageKey = file.StorageKey,
+            IsDeleted = file.IsDeleted,
+            CreatedAt = file.CreatedAt,
+            DeletedAt = file.DeletedAt
+        };
+
+        return Results.Ok(fileDto);
     }
 
     /// <summary>
