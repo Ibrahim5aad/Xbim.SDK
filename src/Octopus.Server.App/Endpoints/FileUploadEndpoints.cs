@@ -40,7 +40,7 @@ public static class FileUploadEndpoints
 
         uploadGroup.MapPost("", ReserveUpload)
             .WithName("ReserveUpload")
-            .Produces<ReserveUploadResponse>()
+            .Produces<ReserveUploadResponse>(StatusCodes.Status201Created)
             .WithOpenApi();
 
         uploadGroup.MapGet("/{sessionId:guid}", GetUploadSession)
@@ -155,7 +155,7 @@ public static class FileUploadEndpoints
             }
         };
 
-        return Results.Ok(response);
+        return Results.Created($"/api/v1/projects/{projectId}/files/uploads/{session.Id}", response);
     }
 
     /// <summary>

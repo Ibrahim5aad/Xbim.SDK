@@ -28,7 +28,7 @@ public static class ModelVersionEndpoints
 
         modelGroup.MapPost("", CreateModelVersion)
             .WithName("CreateModelVersion")
-            .Produces<ModelVersionDto>()
+            .Produces<ModelVersionDto>(StatusCodes.Status201Created)
             .WithOpenApi();
 
         modelGroup.MapGet("", ListModelVersions)
@@ -126,7 +126,7 @@ public static class ModelVersionEndpoints
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var dto = MapToDto(version);
-        return Results.Ok(dto);
+        return Results.Created($"/api/v1/modelversions/{version.Id}", dto);
     }
 
     /// <summary>

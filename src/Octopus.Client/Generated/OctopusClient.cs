@@ -29,7 +29,7 @@ namespace Octopus.Client
     {
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <returns>OK</returns>
+        /// <returns>Created</returns>
         /// <exception cref="OctopusApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<ReserveUploadResponse> ReserveUploadAsync(System.Guid projectId, ReserveUploadRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
@@ -69,7 +69,7 @@ namespace Octopus.Client
         System.Threading.Tasks.Task<FileResponse> GetFileContentAsync(System.Guid fileId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <returns>OK</returns>
+        /// <returns>Created</returns>
         /// <exception cref="OctopusApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<ModelDto> CreateModelAsync(System.Guid projectId, CreateModelRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
@@ -84,7 +84,7 @@ namespace Octopus.Client
         System.Threading.Tasks.Task<ModelDto> GetModelAsync(System.Guid modelId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <returns>OK</returns>
+        /// <returns>Created</returns>
         /// <exception cref="OctopusApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<ModelVersionDto> CreateModelVersionAsync(System.Guid modelId, CreateModelVersionRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
@@ -134,7 +134,7 @@ namespace Octopus.Client
         System.Threading.Tasks.Task<Void> RemoveProjectMemberAsync(System.Guid projectId, System.Guid membershipId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <returns>OK</returns>
+        /// <returns>Created</returns>
         /// <exception cref="OctopusApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<ProjectDto> CreateProjectAsync(System.Guid workspaceId, CreateProjectRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
@@ -216,7 +216,7 @@ namespace Octopus.Client
         System.Threading.Tasks.Task<Void> RemoveWorkspaceMemberAsync(System.Guid workspaceId, System.Guid membershipId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <returns>OK</returns>
+        /// <returns>Created</returns>
         /// <exception cref="OctopusApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<WorkspaceDto> CreateWorkspaceAsync(CreateWorkspaceRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
@@ -286,7 +286,7 @@ namespace Octopus.Client
         partial void ProcessResponse(System.Net.Http.HttpClient client, System.Net.Http.HttpResponseMessage response);
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <returns>OK</returns>
+        /// <returns>Created</returns>
         /// <exception cref="OctopusApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<ReserveUploadResponse> ReserveUploadAsync(System.Guid projectId, ReserveUploadRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
@@ -339,7 +339,7 @@ namespace Octopus.Client
                         ProcessResponse(client_, response_);
 
                         var status_ = (int)response_.StatusCode;
-                        if (status_ == 200)
+                        if (status_ == 201)
                         {
                             var objectResponse_ = await ReadObjectResponseAsync<ReserveUploadResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
@@ -948,7 +948,7 @@ namespace Octopus.Client
         }
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <returns>OK</returns>
+        /// <returns>Created</returns>
         /// <exception cref="OctopusApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<ModelDto> CreateModelAsync(System.Guid projectId, CreateModelRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
@@ -1001,7 +1001,7 @@ namespace Octopus.Client
                         ProcessResponse(client_, response_);
 
                         var status_ = (int)response_.StatusCode;
-                        if (status_ == 200)
+                        if (status_ == 201)
                         {
                             var objectResponse_ = await ReadObjectResponseAsync<ModelDto>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
@@ -1192,7 +1192,7 @@ namespace Octopus.Client
         }
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <returns>OK</returns>
+        /// <returns>Created</returns>
         /// <exception cref="OctopusApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<ModelVersionDto> CreateModelVersionAsync(System.Guid modelId, CreateModelVersionRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
@@ -1245,7 +1245,7 @@ namespace Octopus.Client
                         ProcessResponse(client_, response_);
 
                         var status_ = (int)response_.StatusCode;
-                        if (status_ == 200)
+                        if (status_ == 201)
                         {
                             var objectResponse_ = await ReadObjectResponseAsync<ModelVersionDto>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
@@ -1976,7 +1976,7 @@ namespace Octopus.Client
         }
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <returns>OK</returns>
+        /// <returns>Created</returns>
         /// <exception cref="OctopusApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<ProjectDto> CreateProjectAsync(System.Guid workspaceId, CreateProjectRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
@@ -2029,7 +2029,7 @@ namespace Octopus.Client
                         ProcessResponse(client_, response_);
 
                         var status_ = (int)response_.StatusCode;
-                        if (status_ == 200)
+                        if (status_ == 201)
                         {
                             var objectResponse_ = await ReadObjectResponseAsync<ProjectDto>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
@@ -3163,7 +3163,7 @@ namespace Octopus.Client
         }
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <returns>OK</returns>
+        /// <returns>Created</returns>
         /// <exception cref="OctopusApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<WorkspaceDto> CreateWorkspaceAsync(CreateWorkspaceRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
@@ -3211,7 +3211,7 @@ namespace Octopus.Client
                         ProcessResponse(client_, response_);
 
                         var status_ = (int)response_.StatusCode;
-                        if (status_ == 200)
+                        if (status_ == 201)
                         {
                             var objectResponse_ = await ReadObjectResponseAsync<WorkspaceDto>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)

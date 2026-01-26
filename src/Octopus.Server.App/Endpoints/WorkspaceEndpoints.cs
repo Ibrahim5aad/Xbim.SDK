@@ -24,7 +24,7 @@ public static class WorkspaceEndpoints
 
         group.MapPost("", CreateWorkspace)
             .WithName("CreateWorkspace")
-            .Produces<WorkspaceDto>()
+            .Produces<WorkspaceDto>(StatusCodes.Status201Created)
             .WithOpenApi();
 
         group.MapGet("", ListWorkspaces)
@@ -90,7 +90,7 @@ public static class WorkspaceEndpoints
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var dto = MapToDto(workspace);
-        return Results.Ok(dto);
+        return Results.Created($"/api/v1/workspaces/{workspace.Id}", dto);
     }
 
     /// <summary>

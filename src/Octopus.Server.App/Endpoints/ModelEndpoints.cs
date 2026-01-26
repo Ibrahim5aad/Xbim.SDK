@@ -25,7 +25,7 @@ public static class ModelEndpoints
 
         projectGroup.MapPost("", CreateModel)
             .WithName("CreateModel")
-            .Produces<ModelDto>()
+            .Produces<ModelDto>(StatusCodes.Status201Created)
             .WithOpenApi();
 
         projectGroup.MapGet("", ListModels)
@@ -92,7 +92,7 @@ public static class ModelEndpoints
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var dto = MapToDto(model);
-        return Results.Ok(dto);
+        return Results.Created($"/api/v1/models/{model.Id}", dto);
     }
 
     /// <summary>

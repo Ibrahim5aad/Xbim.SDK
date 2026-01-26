@@ -26,7 +26,7 @@ public static class ProjectEndpoints
 
         workspaceGroup.MapPost("", CreateProject)
             .WithName("CreateProject")
-            .Produces<ProjectDto>()
+            .Produces<ProjectDto>(StatusCodes.Status201Created)
             .WithOpenApi();
 
         workspaceGroup.MapGet("", ListProjects)
@@ -98,7 +98,7 @@ public static class ProjectEndpoints
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var dto = MapToDto(project);
-        return Results.Ok(dto);
+        return Results.Created($"/api/v1/projects/{project.Id}", dto);
     }
 
     /// <summary>
