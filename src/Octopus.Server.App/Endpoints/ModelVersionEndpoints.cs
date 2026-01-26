@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Octopus.Server.Abstractions.Auth;
+using Octopus.Server.Abstractions.Storage;
 using Octopus.Server.Contracts;
 using Octopus.Server.Domain.Entities;
 using Octopus.Server.Persistence.EfCore;
@@ -40,6 +41,10 @@ public static class ModelVersionEndpoints
 
         versionGroup.MapGet("/{versionId:guid}", GetModelVersion)
             .WithName("GetModelVersion")
+            .WithOpenApi();
+
+        versionGroup.MapGet("/{versionId:guid}/wexbim", GetModelVersionWexBim)
+            .WithName("GetModelVersionWexBim")
             .WithOpenApi();
 
         return app;
@@ -217,6 +222,85 @@ public static class ModelVersionEndpoints
         }
 
         return Results.Ok(MapToDto(version));
+    }
+
+    /// <summary>
+    /// Streams the WexBIM artifact for a model version.
+    /// Requires Viewer role or higher in the containing project.
+    /// Returns 404 if no WexBIM artifact exists.
+    /// </summary>
+    private static async Task<IResult> GetModelVersionWexBim(
+        Guid versionId,
+        IUserContext userContext,
+        IAuthorizationService authZ,
+        OctopusDbContext dbContext,
+        IStorageProvider storageProvider,
+        CancellationToken cancellationToken)
+    {
+        if (!userContext.IsAuthenticated)
+        {
+            return Results.Unauthorized();
+        }
+
+        // Find the version with its model and WexBIM file
+        var version = await dbContext.ModelVersions
+            .AsNoTracking()
+            .Include(v => v.Model)
+            .Include(v => v.WexBimFile)
+            .FirstOrDefaultAsync(v => v.Id == versionId, cancellationToken);
+
+        if (version == null)
+        {
+            return Results.NotFound(new { error = "Not Found", message = "Model version not found." });
+        }
+
+        // Check access to the containing project (Viewer or higher)
+        var role = await authZ.GetProjectRoleAsync(version.Model!.ProjectId, cancellationToken);
+        if (!role.HasValue)
+        {
+            // Return 404 to avoid revealing version existence
+            return Results.NotFound(new { error = "Not Found", message = "Model version not found." });
+        }
+
+        // Check if WexBIM artifact exists
+        if (!version.WexBimFileId.HasValue || version.WexBimFile == null)
+        {
+            return Results.NotFound(new { error = "Not Found", message = "WexBIM artifact not found for this model version." });
+        }
+
+        var wexBimFile = version.WexBimFile;
+
+        // Check if the file is deleted
+        if (wexBimFile.IsDeleted)
+        {
+            return Results.NotFound(new { error = "Not Found", message = "WexBIM artifact has been deleted." });
+        }
+
+        // Check if storage key exists
+        if (string.IsNullOrEmpty(wexBimFile.StorageKey))
+        {
+            return Results.NotFound(new { error = "Not Found", message = "WexBIM artifact content not available." });
+        }
+
+        // Open the file stream from storage
+        var stream = await storageProvider.OpenReadAsync(wexBimFile.StorageKey, cancellationToken);
+
+        if (stream == null)
+        {
+            return Results.NotFound(new { error = "Not Found", message = "WexBIM artifact content not found in storage." });
+        }
+
+        // Determine content type (default to application/octet-stream if not specified)
+        var contentType = !string.IsNullOrEmpty(wexBimFile.ContentType)
+            ? wexBimFile.ContentType
+            : "application/octet-stream";
+
+        // Return the file stream with appropriate headers
+        return Results.File(
+            stream,
+            contentType: contentType,
+            fileDownloadName: wexBimFile.Name,
+            enableRangeProcessing: true);
     }
 
     private static ModelVersionDto MapToDto(ModelVersion version)

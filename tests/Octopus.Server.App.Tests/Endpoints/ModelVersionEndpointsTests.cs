@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
@@ -5,6 +6,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Octopus.Server.Abstractions.Storage;
 using Octopus.Server.Contracts;
 using Octopus.Server.Domain.Entities;
 using Octopus.Server.Persistence.EfCore;
@@ -16,15 +18,60 @@ using DomainFileCategory = Octopus.Server.Domain.Enums.FileCategory;
 
 namespace Octopus.Server.App.Tests.Endpoints;
 
+public class InMemoryStorageProviderForModelVersionTests : IStorageProvider
+{
+    public string ProviderId => "InMemory";
+
+    public ConcurrentDictionary<string, byte[]> Storage { get; } = new();
+
+    public Task<string> PutAsync(string key, Stream content, string? contentType = null, CancellationToken cancellationToken = default)
+    {
+        using var ms = new MemoryStream();
+        content.CopyTo(ms);
+        Storage[key] = ms.ToArray();
+        return Task.FromResult(key);
+    }
+
+    public Task<Stream?> OpenReadAsync(string key, CancellationToken cancellationToken = default)
+    {
+        if (Storage.TryGetValue(key, out var data))
+        {
+            return Task.FromResult<Stream?>(new MemoryStream(data));
+        }
+        return Task.FromResult<Stream?>(null);
+    }
+
+    public Task<bool> DeleteAsync(string key, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(Storage.TryRemove(key, out _));
+    }
+
+    public Task<bool> ExistsAsync(string key, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(Storage.ContainsKey(key));
+    }
+
+    public Task<long?> GetSizeAsync(string key, CancellationToken cancellationToken = default)
+    {
+        if (Storage.TryGetValue(key, out var data))
+        {
+            return Task.FromResult<long?>(data.Length);
+        }
+        return Task.FromResult<long?>(null);
+    }
+}
+
 public class ModelVersionEndpointsTests : IDisposable
 {
     private readonly WebApplicationFactory<Program> _factory;
     private readonly HttpClient _client;
     private readonly string _testDbName;
+    private readonly InMemoryStorageProviderForModelVersionTests _storageProvider;
 
     public ModelVersionEndpointsTests()
     {
         _testDbName = $"test_{Guid.NewGuid()}";
+        _storageProvider = new InMemoryStorageProviderForModelVersionTests();
 
         _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
@@ -36,6 +83,10 @@ public class ModelVersionEndpointsTests : IDisposable
                 services.RemoveAll(typeof(DbContextOptions<OctopusDbContext>));
                 services.RemoveAll(typeof(DbContextOptions));
                 services.RemoveAll(typeof(OctopusDbContext));
+
+                // Remove storage provider and add in-memory one
+                services.RemoveAll(typeof(IStorageProvider));
+                services.AddSingleton<IStorageProvider>(_storageProvider);
 
                 // Add in-memory database for testing
                 services.AddDbContext<OctopusDbContext>(options =>
@@ -592,6 +643,490 @@ public class ModelVersionEndpointsTests : IDisposable
 
         // Assert - Returns 404 to avoid revealing version existence
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    #endregion
+
+    #region Get ModelVersion WexBIM Tests
+
+    [Fact]
+    public async Task GetModelVersionWexBim_ReturnsWexBim_WhenArtifactExists()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var model = await CreateModelAsync(project.Id);
+        var ifcFile = await CreateFileInProjectAsync(project.Id);
+
+        // Create the version
+        var createResponse = await _client.PostAsJsonAsync(
+            $"/api/v1/models/{model.Id}/versions",
+            new CreateModelVersionRequest { IfcFileId = ifcFile.Id });
+        var version = await createResponse.Content.ReadFromJsonAsync<ModelVersionDto>();
+
+        // Create a WexBIM artifact file and link it to the version
+        var wexBimContent = new byte[] { 0x57, 0x45, 0x58, 0x42, 0x49, 0x4D }; // "WEXBIM" bytes
+        var wexBimStorageKey = $"test/wexbim/{Guid.NewGuid():N}";
+        _storageProvider.Storage[wexBimStorageKey] = wexBimContent;
+
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<OctopusDbContext>();
+
+        var wexBimFile = new FileEntity
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = project.Id,
+            Name = "model.wexbim",
+            ContentType = "application/octet-stream",
+            SizeBytes = wexBimContent.Length,
+            Kind = DomainFileKind.Artifact,
+            Category = DomainFileCategory.WexBim,
+            StorageProvider = "InMemory",
+            StorageKey = wexBimStorageKey,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        dbContext.Files.Add(wexBimFile);
+
+        var modelVersion = await dbContext.ModelVersions.FirstAsync(v => v.Id == version!.Id);
+        modelVersion.WexBimFileId = wexBimFile.Id;
+        await dbContext.SaveChangesAsync();
+
+        // Act
+        var response = await _client.GetAsync($"/api/v1/modelversions/{version!.Id}/wexbim");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var content = await response.Content.ReadAsByteArrayAsync();
+        Assert.Equal(wexBimContent, content);
+        Assert.Equal("application/octet-stream", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task GetModelVersionWexBim_ReturnsNotFound_WhenNoWexBimArtifactExists()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var model = await CreateModelAsync(project.Id);
+        var ifcFile = await CreateFileInProjectAsync(project.Id);
+
+        // Create the version without WexBIM artifact
+        var createResponse = await _client.PostAsJsonAsync(
+            $"/api/v1/models/{model.Id}/versions",
+            new CreateModelVersionRequest { IfcFileId = ifcFile.Id });
+        var version = await createResponse.Content.ReadFromJsonAsync<ModelVersionDto>();
+
+        // Act
+        var response = await _client.GetAsync($"/api/v1/modelversions/{version!.Id}/wexbim");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetModelVersionWexBim_ReturnsNotFound_WhenVersionDoesNotExist()
+    {
+        // Arrange
+        var randomVersionId = Guid.NewGuid();
+
+        // Act
+        var response = await _client.GetAsync($"/api/v1/modelversions/{randomVersionId}/wexbim");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetModelVersionWexBim_ReturnsNotFound_WhenUserHasNoAccess()
+    {
+        // Arrange - Create version in project user doesn't have access to
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<OctopusDbContext>();
+
+        var workspace = new Workspace
+        {
+            Id = Guid.NewGuid(),
+            Name = "Inaccessible Workspace",
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        dbContext.Workspaces.Add(workspace);
+
+        var project = new Project
+        {
+            Id = Guid.NewGuid(),
+            WorkspaceId = workspace.Id,
+            Name = "Hidden Project",
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        dbContext.Projects.Add(project);
+
+        var model = new Model
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = project.Id,
+            Name = "Hidden Model",
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        dbContext.Models.Add(model);
+
+        var ifcFile = new FileEntity
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = project.Id,
+            Name = "test.ifc",
+            ContentType = "application/x-step",
+            SizeBytes = 1024,
+            Kind = DomainFileKind.Source,
+            Category = DomainFileCategory.Ifc,
+            StorageProvider = "InMemory",
+            StorageKey = "test/key",
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        dbContext.Files.Add(ifcFile);
+
+        // Create WexBIM artifact
+        var wexBimContent = new byte[] { 0x57, 0x45, 0x58, 0x42, 0x49, 0x4D };
+        var wexBimStorageKey = $"test/wexbim/{Guid.NewGuid():N}";
+        _storageProvider.Storage[wexBimStorageKey] = wexBimContent;
+
+        var wexBimFile = new FileEntity
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = project.Id,
+            Name = "model.wexbim",
+            ContentType = "application/octet-stream",
+            SizeBytes = wexBimContent.Length,
+            Kind = DomainFileKind.Artifact,
+            Category = DomainFileCategory.WexBim,
+            StorageProvider = "InMemory",
+            StorageKey = wexBimStorageKey,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        dbContext.Files.Add(wexBimFile);
+
+        var version = new ModelVersion
+        {
+            Id = Guid.NewGuid(),
+            ModelId = model.Id,
+            VersionNumber = 1,
+            IfcFileId = ifcFile.Id,
+            WexBimFileId = wexBimFile.Id,
+            Status = Domain.Enums.ProcessingStatus.Ready,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        dbContext.ModelVersions.Add(version);
+        await dbContext.SaveChangesAsync();
+
+        // Act
+        var response = await _client.GetAsync($"/api/v1/modelversions/{version.Id}/wexbim");
+
+        // Assert - Returns 404 to avoid revealing version existence
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetModelVersionWexBim_ReturnsNotFound_WhenWexBimFileIsDeleted()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var model = await CreateModelAsync(project.Id);
+        var ifcFile = await CreateFileInProjectAsync(project.Id);
+
+        // Create the version
+        var createResponse = await _client.PostAsJsonAsync(
+            $"/api/v1/models/{model.Id}/versions",
+            new CreateModelVersionRequest { IfcFileId = ifcFile.Id });
+        var version = await createResponse.Content.ReadFromJsonAsync<ModelVersionDto>();
+
+        // Create a WexBIM artifact file and mark it as deleted
+        var wexBimContent = new byte[] { 0x57, 0x45, 0x58, 0x42, 0x49, 0x4D };
+        var wexBimStorageKey = $"test/wexbim/{Guid.NewGuid():N}";
+        _storageProvider.Storage[wexBimStorageKey] = wexBimContent;
+
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<OctopusDbContext>();
+
+        var wexBimFile = new FileEntity
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = project.Id,
+            Name = "model.wexbim",
+            ContentType = "application/octet-stream",
+            SizeBytes = wexBimContent.Length,
+            Kind = DomainFileKind.Artifact,
+            Category = DomainFileCategory.WexBim,
+            StorageProvider = "InMemory",
+            StorageKey = wexBimStorageKey,
+            IsDeleted = true,
+            DeletedAt = DateTimeOffset.UtcNow,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        dbContext.Files.Add(wexBimFile);
+
+        var modelVersion = await dbContext.ModelVersions.FirstAsync(v => v.Id == version!.Id);
+        modelVersion.WexBimFileId = wexBimFile.Id;
+        await dbContext.SaveChangesAsync();
+
+        // Act
+        var response = await _client.GetAsync($"/api/v1/modelversions/{version!.Id}/wexbim");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetModelVersionWexBim_ReturnsNotFound_WhenStorageKeyIsEmpty()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var model = await CreateModelAsync(project.Id);
+        var ifcFile = await CreateFileInProjectAsync(project.Id);
+
+        // Create the version
+        var createResponse = await _client.PostAsJsonAsync(
+            $"/api/v1/models/{model.Id}/versions",
+            new CreateModelVersionRequest { IfcFileId = ifcFile.Id });
+        var version = await createResponse.Content.ReadFromJsonAsync<ModelVersionDto>();
+
+        // Create a WexBIM artifact file with empty storage key
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<OctopusDbContext>();
+
+        var wexBimFile = new FileEntity
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = project.Id,
+            Name = "model.wexbim",
+            ContentType = "application/octet-stream",
+            SizeBytes = 100,
+            Kind = DomainFileKind.Artifact,
+            Category = DomainFileCategory.WexBim,
+            StorageProvider = "InMemory",
+            StorageKey = "", // Empty storage key
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        dbContext.Files.Add(wexBimFile);
+
+        var modelVersion = await dbContext.ModelVersions.FirstAsync(v => v.Id == version!.Id);
+        modelVersion.WexBimFileId = wexBimFile.Id;
+        await dbContext.SaveChangesAsync();
+
+        // Act
+        var response = await _client.GetAsync($"/api/v1/modelversions/{version!.Id}/wexbim");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetModelVersionWexBim_ReturnsNotFound_WhenStorageContentMissing()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var model = await CreateModelAsync(project.Id);
+        var ifcFile = await CreateFileInProjectAsync(project.Id);
+
+        // Create the version
+        var createResponse = await _client.PostAsJsonAsync(
+            $"/api/v1/models/{model.Id}/versions",
+            new CreateModelVersionRequest { IfcFileId = ifcFile.Id });
+        var version = await createResponse.Content.ReadFromJsonAsync<ModelVersionDto>();
+
+        // Create a WexBIM artifact file with non-existent storage key
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<OctopusDbContext>();
+
+        var wexBimFile = new FileEntity
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = project.Id,
+            Name = "model.wexbim",
+            ContentType = "application/octet-stream",
+            SizeBytes = 100,
+            Kind = DomainFileKind.Artifact,
+            Category = DomainFileCategory.WexBim,
+            StorageProvider = "InMemory",
+            StorageKey = "non-existent/key", // Key doesn't exist in storage
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        dbContext.Files.Add(wexBimFile);
+
+        var modelVersion = await dbContext.ModelVersions.FirstAsync(v => v.Id == version!.Id);
+        modelVersion.WexBimFileId = wexBimFile.Id;
+        await dbContext.SaveChangesAsync();
+
+        // Act
+        var response = await _client.GetAsync($"/api/v1/modelversions/{version!.Id}/wexbim");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetModelVersionWexBim_ReturnsCorrectContentType()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var model = await CreateModelAsync(project.Id);
+        var ifcFile = await CreateFileInProjectAsync(project.Id);
+
+        // Create the version
+        var createResponse = await _client.PostAsJsonAsync(
+            $"/api/v1/models/{model.Id}/versions",
+            new CreateModelVersionRequest { IfcFileId = ifcFile.Id });
+        var version = await createResponse.Content.ReadFromJsonAsync<ModelVersionDto>();
+
+        // Create a WexBIM artifact file with custom content type
+        var wexBimContent = new byte[] { 0x57, 0x45, 0x58, 0x42, 0x49, 0x4D };
+        var wexBimStorageKey = $"test/wexbim/{Guid.NewGuid():N}";
+        _storageProvider.Storage[wexBimStorageKey] = wexBimContent;
+
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<OctopusDbContext>();
+
+        var wexBimFile = new FileEntity
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = project.Id,
+            Name = "model.wexbim",
+            ContentType = "application/x-wexbim",
+            SizeBytes = wexBimContent.Length,
+            Kind = DomainFileKind.Artifact,
+            Category = DomainFileCategory.WexBim,
+            StorageProvider = "InMemory",
+            StorageKey = wexBimStorageKey,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        dbContext.Files.Add(wexBimFile);
+
+        var modelVersion = await dbContext.ModelVersions.FirstAsync(v => v.Id == version!.Id);
+        modelVersion.WexBimFileId = wexBimFile.Id;
+        await dbContext.SaveChangesAsync();
+
+        // Act
+        var response = await _client.GetAsync($"/api/v1/modelversions/{version!.Id}/wexbim");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/x-wexbim", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task GetModelVersionWexBim_DoesNotMutateProcessingState()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var model = await CreateModelAsync(project.Id);
+        var ifcFile = await CreateFileInProjectAsync(project.Id);
+
+        // Create the version
+        var createResponse = await _client.PostAsJsonAsync(
+            $"/api/v1/models/{model.Id}/versions",
+            new CreateModelVersionRequest { IfcFileId = ifcFile.Id });
+        var version = await createResponse.Content.ReadFromJsonAsync<ModelVersionDto>();
+
+        // Create a WexBIM artifact file
+        var wexBimContent = new byte[] { 0x57, 0x45, 0x58, 0x42, 0x49, 0x4D };
+        var wexBimStorageKey = $"test/wexbim/{Guid.NewGuid():N}";
+        _storageProvider.Storage[wexBimStorageKey] = wexBimContent;
+
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<OctopusDbContext>();
+
+        var wexBimFile = new FileEntity
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = project.Id,
+            Name = "model.wexbim",
+            ContentType = "application/octet-stream",
+            SizeBytes = wexBimContent.Length,
+            Kind = DomainFileKind.Artifact,
+            Category = DomainFileCategory.WexBim,
+            StorageProvider = "InMemory",
+            StorageKey = wexBimStorageKey,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        dbContext.Files.Add(wexBimFile);
+
+        var modelVersion = await dbContext.ModelVersions.FirstAsync(v => v.Id == version!.Id);
+        modelVersion.WexBimFileId = wexBimFile.Id;
+        modelVersion.Status = Domain.Enums.ProcessingStatus.Ready;
+        await dbContext.SaveChangesAsync();
+
+        var originalStatus = modelVersion.Status;
+        var originalProcessedAt = modelVersion.ProcessedAt;
+
+        // Act - Download the WexBIM multiple times
+        await _client.GetAsync($"/api/v1/modelversions/{version!.Id}/wexbim");
+        await _client.GetAsync($"/api/v1/modelversions/{version.Id}/wexbim");
+        await _client.GetAsync($"/api/v1/modelversions/{version.Id}/wexbim");
+
+        // Assert - State should not change
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDbContext = verifyScope.ServiceProvider.GetRequiredService<OctopusDbContext>();
+        var verifyVersion = await verifyDbContext.ModelVersions.FirstAsync(v => v.Id == version.Id);
+
+        Assert.Equal(originalStatus, verifyVersion.Status);
+        Assert.Equal(originalProcessedAt, verifyVersion.ProcessedAt);
+    }
+
+    [Fact]
+    public async Task GetModelVersionWexBim_StreamsLargeFiles()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var model = await CreateModelAsync(project.Id);
+        var ifcFile = await CreateFileInProjectAsync(project.Id);
+
+        // Create the version
+        var createResponse = await _client.PostAsJsonAsync(
+            $"/api/v1/models/{model.Id}/versions",
+            new CreateModelVersionRequest { IfcFileId = ifcFile.Id });
+        var version = await createResponse.Content.ReadFromJsonAsync<ModelVersionDto>();
+
+        // Create a larger WexBIM file (100KB)
+        var wexBimContent = new byte[100 * 1024];
+        new Random(42).NextBytes(wexBimContent);
+        var wexBimStorageKey = $"test/wexbim/{Guid.NewGuid():N}";
+        _storageProvider.Storage[wexBimStorageKey] = wexBimContent;
+
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<OctopusDbContext>();
+
+        var wexBimFile = new FileEntity
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = project.Id,
+            Name = "large-model.wexbim",
+            ContentType = "application/octet-stream",
+            SizeBytes = wexBimContent.Length,
+            Kind = DomainFileKind.Artifact,
+            Category = DomainFileCategory.WexBim,
+            StorageProvider = "InMemory",
+            StorageKey = wexBimStorageKey,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        dbContext.Files.Add(wexBimFile);
+
+        var modelVersion = await dbContext.ModelVersions.FirstAsync(v => v.Id == version!.Id);
+        modelVersion.WexBimFileId = wexBimFile.Id;
+        await dbContext.SaveChangesAsync();
+
+        // Act
+        var response = await _client.GetAsync($"/api/v1/modelversions/{version!.Id}/wexbim");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var downloadedContent = await response.Content.ReadAsByteArrayAsync();
+        Assert.Equal(wexBimContent.Length, downloadedContent.Length);
+        Assert.Equal(wexBimContent, downloadedContent);
     }
 
     #endregion
