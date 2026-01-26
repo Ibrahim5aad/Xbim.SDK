@@ -90,4 +90,17 @@ desktop.ini
 **/wwwroot/service-worker-assets.js
 
 ## libman (Library Manager) cache
-**/wwwroot/lib/.libman/ 
+**/wwwroot/lib/.libman/
+
+## AI Agent files (Claude Code, etc.)
+.claude/
+.runlogs/
+*.ps1
+
+## Windows artifacts
+nul
+
+## SQLite database files
+*.db
+*.db-shm
+*.db-wal
