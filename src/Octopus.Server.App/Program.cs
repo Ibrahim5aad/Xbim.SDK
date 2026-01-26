@@ -50,6 +50,7 @@ if (!builder.Environment.EnvironmentName.Equals("Testing", StringComparison.Ordi
     builder.Services.AddInMemoryProcessing(processing =>
     {
         processing.AddHandler<IfcToWexBimJobPayload, IfcToWexBimJobHandler>(IfcToWexBimJobHandler.JobTypeName);
+        processing.AddHandler<ExtractPropertiesJobPayload, ExtractPropertiesJobHandler>(ExtractPropertiesJobHandler.JobTypeName);
     });
 }
 
