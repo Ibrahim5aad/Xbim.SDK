@@ -34,9 +34,19 @@ public class ProjectConfiguration : IEntityTypeConfiguration<Project>
         // Index for faster lookups by workspace
         builder.HasIndex(p => p.WorkspaceId);
 
-        // Ignore File/Model navigation properties for now (M3/M4 features)
-        builder.Ignore(p => p.Files);
+        // One project has many files
+        builder.HasMany(p => p.Files)
+            .WithOne(f => f.Project)
+            .HasForeignKey(f => f.ProjectId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // One project has many upload sessions
+        builder.HasMany(p => p.UploadSessions)
+            .WithOne(us => us.Project)
+            .HasForeignKey(us => us.ProjectId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Ignore Models navigation property for now (M4 feature)
         builder.Ignore(p => p.Models);
-        builder.Ignore(p => p.UploadSessions);
     }
 }

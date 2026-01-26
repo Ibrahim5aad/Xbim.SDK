@@ -19,6 +19,9 @@ public class OctopusDbContext : DbContext
     public DbSet<WorkspaceMembership> WorkspaceMemberships => Set<WorkspaceMembership>();
     public DbSet<ProjectMembership> ProjectMemberships => Set<ProjectMembership>();
     public DbSet<WorkspaceInvite> WorkspaceInvites => Set<WorkspaceInvite>();
+    public DbSet<FileEntity> Files => Set<FileEntity>();
+    public DbSet<FileLink> FileLinks => Set<FileLink>();
+    public DbSet<UploadSession> UploadSessions => Set<UploadSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
