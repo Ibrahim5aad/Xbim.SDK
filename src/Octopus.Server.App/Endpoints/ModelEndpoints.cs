@@ -25,10 +25,12 @@ public static class ModelEndpoints
 
         projectGroup.MapPost("", CreateModel)
             .WithName("CreateModel")
+            .Produces<ModelDto>()
             .WithOpenApi();
 
         projectGroup.MapGet("", ListModels)
             .WithName("ListModels")
+            .Produces<PagedList<ModelDto>>()
             .WithOpenApi();
 
         // Direct model endpoints for get/update
@@ -38,6 +40,7 @@ public static class ModelEndpoints
 
         modelGroup.MapGet("/{modelId:guid}", GetModel)
             .WithName("GetModel")
+            .Produces<ModelDto>()
             .WithOpenApi();
 
         return app;
@@ -89,7 +92,7 @@ public static class ModelEndpoints
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var dto = MapToDto(model);
-        return Results.Created($"/api/v1/models/{model.Id}", dto);
+        return Results.Ok(dto);
     }
 
     /// <summary>

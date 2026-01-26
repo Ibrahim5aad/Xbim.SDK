@@ -25,12 +25,14 @@ public static class PropertiesEndpoints
             .WithName("QueryProperties")
             .WithSummary("Query IFC element properties with filtering and paging")
             .WithDescription("Returns a paged list of IFC elements with their properties. Filter by entity label, global ID, type name, or property set name. Always returns paged results to prevent large response payloads.")
+            .Produces<PagedList<IfcElementDto>>()
             .WithOpenApi();
 
         group.MapGet("/elements/{elementId:guid}", GetElementProperties)
             .WithName("GetElementProperties")
             .WithSummary("Get properties for a specific element")
             .WithDescription("Returns all properties and quantities for a single IFC element by its ID.")
+            .Produces<IfcElementDto>()
             .WithOpenApi();
 
         return app;

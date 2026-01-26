@@ -28,10 +28,12 @@ public static class ModelVersionEndpoints
 
         modelGroup.MapPost("", CreateModelVersion)
             .WithName("CreateModelVersion")
+            .Produces<ModelVersionDto>()
             .WithOpenApi();
 
         modelGroup.MapGet("", ListModelVersions)
             .WithName("ListModelVersions")
+            .Produces<PagedList<ModelVersionDto>>()
             .WithOpenApi();
 
         // Direct version endpoints for get
@@ -41,10 +43,12 @@ public static class ModelVersionEndpoints
 
         versionGroup.MapGet("/{versionId:guid}", GetModelVersion)
             .WithName("GetModelVersion")
+            .Produces<ModelVersionDto>()
             .WithOpenApi();
 
         versionGroup.MapGet("/{versionId:guid}/wexbim", GetModelVersionWexBim)
             .WithName("GetModelVersionWexBim")
+            .Produces(StatusCodes.Status200OK, contentType: "application/octet-stream")
             .WithOpenApi();
 
         return app;
@@ -122,7 +126,7 @@ public static class ModelVersionEndpoints
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var dto = MapToDto(version);
-        return Results.Created($"/api/v1/modelversions/{version.Id}", dto);
+        return Results.Ok(dto);
     }
 
     /// <summary>

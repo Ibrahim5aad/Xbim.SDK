@@ -24,18 +24,22 @@ public static class WorkspaceEndpoints
 
         group.MapPost("", CreateWorkspace)
             .WithName("CreateWorkspace")
+            .Produces<WorkspaceDto>()
             .WithOpenApi();
 
         group.MapGet("", ListWorkspaces)
             .WithName("ListWorkspaces")
+            .Produces<PagedList<WorkspaceDto>>()
             .WithOpenApi();
 
         group.MapGet("/{workspaceId:guid}", GetWorkspace)
             .WithName("GetWorkspace")
+            .Produces<WorkspaceDto>()
             .WithOpenApi();
 
         group.MapPut("/{workspaceId:guid}", UpdateWorkspace)
             .WithName("UpdateWorkspace")
+            .Produces<WorkspaceDto>()
             .WithOpenApi();
 
         return app;
@@ -86,7 +90,7 @@ public static class WorkspaceEndpoints
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var dto = MapToDto(workspace);
-        return Results.Created($"/api/v1/workspaces/{workspace.Id}", dto);
+        return Results.Ok(dto);
     }
 
     /// <summary>

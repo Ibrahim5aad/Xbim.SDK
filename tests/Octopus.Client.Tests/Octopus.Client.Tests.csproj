@@ -21,10 +21,21 @@
     </PackageReference>
     <PackageReference Include="Moq" Version="4.20.72" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Octopus.Client\Octopus.Client.csproj" />
+    <ProjectReference Include="..\..\src\Octopus.Server.App\Octopus.Server.App.csproj" />
+    <ProjectReference Include="..\..\src\Octopus.Server.Persistence.EfCore\Octopus.Server.Persistence.EfCore.csproj" />
+    <ProjectReference Include="..\..\src\Octopus.Server.Abstractions\Octopus.Server.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Integration\TestFiles\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

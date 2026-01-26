@@ -26,10 +26,12 @@ public static class ProjectEndpoints
 
         workspaceGroup.MapPost("", CreateProject)
             .WithName("CreateProject")
+            .Produces<ProjectDto>()
             .WithOpenApi();
 
         workspaceGroup.MapGet("", ListProjects)
             .WithName("ListProjects")
+            .Produces<PagedList<ProjectDto>>()
             .WithOpenApi();
 
         // Direct project endpoints for get/update
@@ -39,10 +41,12 @@ public static class ProjectEndpoints
 
         projectGroup.MapGet("/{projectId:guid}", GetProject)
             .WithName("GetProject")
+            .Produces<ProjectDto>()
             .WithOpenApi();
 
         projectGroup.MapPut("/{projectId:guid}", UpdateProject)
             .WithName("UpdateProject")
+            .Produces<ProjectDto>()
             .WithOpenApi();
 
         return app;
@@ -94,7 +98,7 @@ public static class ProjectEndpoints
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var dto = MapToDto(project);
-        return Results.Created($"/api/v1/projects/{project.Id}", dto);
+        return Results.Ok(dto);
     }
 
     /// <summary>

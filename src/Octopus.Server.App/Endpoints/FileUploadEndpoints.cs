@@ -40,19 +40,24 @@ public static class FileUploadEndpoints
 
         uploadGroup.MapPost("", ReserveUpload)
             .WithName("ReserveUpload")
+            .Produces<ReserveUploadResponse>()
             .WithOpenApi();
 
         uploadGroup.MapGet("/{sessionId:guid}", GetUploadSession)
             .WithName("GetUploadSession")
+            .Produces<UploadSessionDto>()
             .WithOpenApi();
 
         uploadGroup.MapPost("/{sessionId:guid}/content", UploadContent)
             .WithName("UploadContent")
+            .Accepts<IFormFile>("multipart/form-data")
+            .Produces<UploadContentResponse>()
             .WithOpenApi()
             .DisableAntiforgery();
 
         uploadGroup.MapPost("/{sessionId:guid}/commit", CommitUpload)
             .WithName("CommitUpload")
+            .Produces<CommitUploadResponse>()
             .WithOpenApi();
 
         return app;
@@ -150,7 +155,7 @@ public static class FileUploadEndpoints
             }
         };
 
-        return Results.Created($"/api/v1/projects/{projectId}/files/uploads/{sessionId}", response);
+        return Results.Ok(response);
     }
 
     /// <summary>
@@ -191,7 +196,7 @@ public static class FileUploadEndpoints
     private static async Task<IResult> UploadContent(
         Guid projectId,
         Guid sessionId,
-        HttpRequest request,
+        IFormFile file,
         IUserContext userContext,
         IAuthorizationService authZ,
         OctopusDbContext dbContext,
@@ -240,33 +245,8 @@ public static class FileUploadEndpoints
             });
         }
 
-        // Check content type is multipart/form-data
-        if (!request.HasFormContentType)
-        {
-            return Results.BadRequest(new
-            {
-                error = "Invalid Content Type",
-                message = "Content-Type must be multipart/form-data."
-            });
-        }
-
-        // Get the form with file
-        IFormFile? file;
-        try
-        {
-            var form = await request.ReadFormAsync(cancellationToken);
-            file = form.Files.FirstOrDefault();
-        }
-        catch (Exception)
-        {
-            return Results.BadRequest(new
-            {
-                error = "Invalid Form Data",
-                message = "Could not read form data from request."
-            });
-        }
-
-        if (file == null || file.Length == 0)
+        // Validate file is provided
+        if (file.Length == 0)
         {
             return Results.BadRequest(new
             {

@@ -27,6 +27,7 @@ public static class FileEndpoints
 
         projectFilesGroup.MapGet("", ListFiles)
             .WithName("ListFiles")
+            .Produces<PagedList<FileDto>>()
             .WithOpenApi();
 
         // File-scoped endpoints (access by file ID)
@@ -36,14 +37,17 @@ public static class FileEndpoints
 
         filesGroup.MapGet("/{fileId:guid}", GetFile)
             .WithName("GetFile")
+            .Produces<FileDto>()
             .WithOpenApi();
 
         filesGroup.MapGet("/{fileId:guid}/content", GetFileContent)
             .WithName("GetFileContent")
+            .Produces(StatusCodes.Status200OK, contentType: "application/octet-stream")
             .WithOpenApi();
 
         filesGroup.MapDelete("/{fileId:guid}", DeleteFile)
             .WithName("DeleteFile")
+            .Produces<FileDto>()
             .WithOpenApi();
 
         return app;
