@@ -152,3 +152,19 @@ public record UploadContentResponse
     /// </summary>
     public long BytesUploaded { get; init; }
 }
+
+/// <summary>
+/// Response returned after committing an upload session.
+/// </summary>
+public record CommitUploadResponse
+{
+    /// <summary>
+    /// The committed upload session.
+    /// </summary>
+    public UploadSessionDto Session { get; init; } = null!;
+
+    /// <summary>
+    /// The created file record.
+    /// </summary>
+    public FileDto File { get; init; } = null!;
+}

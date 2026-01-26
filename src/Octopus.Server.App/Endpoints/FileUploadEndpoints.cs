@@ -8,6 +8,8 @@ using Octopus.Server.Persistence.EfCore;
 
 using ProjectRole = Octopus.Server.Domain.Enums.ProjectRole;
 using DomainUploadSessionStatus = Octopus.Server.Domain.Enums.UploadSessionStatus;
+using FileKind = Octopus.Server.Contracts.FileKind;
+using FileCategory = Octopus.Server.Contracts.FileCategory;
 
 namespace Octopus.Server.App.Endpoints;
 
@@ -48,6 +50,10 @@ public static class FileUploadEndpoints
             .WithName("UploadContent")
             .WithOpenApi()
             .DisableAntiforgery();
+
+        uploadGroup.MapPost("/{sessionId:guid}/commit", CommitUpload)
+            .WithName("CommitUpload")
+            .WithOpenApi();
 
         return app;
     }
@@ -327,6 +333,169 @@ public static class FileUploadEndpoints
         return Results.Ok(response);
     }
 
+    /// <summary>
+    /// Commits an upload session, creating a File record and marking the session as committed.
+    /// Requires at least Editor role in the project.
+    /// </summary>
+    private static async Task<IResult> CommitUpload(
+        Guid projectId,
+        Guid sessionId,
+        CommitUploadRequest? request,
+        IUserContext userContext,
+        IAuthorizationService authZ,
+        OctopusDbContext dbContext,
+        IStorageProvider storageProvider,
+        CancellationToken cancellationToken)
+    {
+        if (!userContext.IsAuthenticated || !userContext.UserId.HasValue)
+        {
+            return Results.Unauthorized();
+        }
+
+        // Require at least Editor role to commit uploads
+        await authZ.RequireProjectAccessAsync(projectId, ProjectRole.Editor, cancellationToken);
+
+        // Get the session
+        var session = await dbContext.UploadSessions
+            .FirstOrDefaultAsync(s => s.Id == sessionId && s.ProjectId == projectId, cancellationToken);
+
+        if (session == null)
+        {
+            return Results.NotFound(new { error = "Not Found", message = "Upload session not found." });
+        }
+
+        // Validate session status - must be Uploading (content has been uploaded)
+        if (session.Status != DomainUploadSessionStatus.Uploading)
+        {
+            if (session.Status == DomainUploadSessionStatus.Reserved)
+            {
+                return Results.BadRequest(new
+                {
+                    error = "Invalid Session State",
+                    message = "Cannot commit session - no content has been uploaded yet."
+                });
+            }
+
+            if (session.Status == DomainUploadSessionStatus.Committed)
+            {
+                return Results.BadRequest(new
+                {
+                    error = "Invalid Session State",
+                    message = "Upload session has already been committed."
+                });
+            }
+
+            return Results.BadRequest(new
+            {
+                error = "Invalid Session State",
+                message = $"Cannot commit session with status '{session.Status}'."
+            });
+        }
+
+        // Validate session hasn't expired
+        if (session.ExpiresAt < DateTimeOffset.UtcNow)
+        {
+            session.Status = DomainUploadSessionStatus.Expired;
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            return Results.BadRequest(new
+            {
+                error = "Session Expired",
+                message = "The upload session has expired."
+            });
+        }
+
+        // Verify file exists in storage
+        if (string.IsNullOrEmpty(session.TempStorageKey))
+        {
+            return Results.Problem("Upload session is missing storage key.");
+        }
+
+        var exists = await storageProvider.ExistsAsync(session.TempStorageKey, cancellationToken);
+        if (!exists)
+        {
+            session.Status = DomainUploadSessionStatus.Failed;
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            return Results.BadRequest(new
+            {
+                error = "Content Not Found",
+                message = "Uploaded content not found in storage. Please re-upload."
+            });
+        }
+
+        // Get file size from storage
+        var sizeBytes = await storageProvider.GetSizeAsync(session.TempStorageKey, cancellationToken);
+        if (!sizeBytes.HasValue)
+        {
+            return Results.Problem("Could not determine file size from storage.");
+        }
+
+        // Validate size against expected size if specified
+        if (session.ExpectedSizeBytes.HasValue && sizeBytes.Value != session.ExpectedSizeBytes.Value)
+        {
+            return Results.BadRequest(new
+            {
+                error = "Size Mismatch",
+                message = $"Stored file size ({sizeBytes.Value} bytes) does not match expected size ({session.ExpectedSizeBytes.Value} bytes)."
+            });
+        }
+
+        // Determine file category from extension
+        var fileCategory = DetermineFileCategory(session.FileName);
+
+        // Create the File record
+        var now = DateTimeOffset.UtcNow;
+        var file = new FileEntity
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = projectId,
+            Name = session.FileName,
+            ContentType = session.ContentType,
+            SizeBytes = sizeBytes.Value,
+            Checksum = request?.Checksum,
+            Kind = Domain.Enums.FileKind.Source,
+            Category = fileCategory,
+            StorageProvider = storageProvider.ProviderId,
+            StorageKey = session.TempStorageKey,
+            IsDeleted = false,
+            CreatedAt = now
+        };
+
+        dbContext.Files.Add(file);
+
+        // Update session to committed
+        session.Status = DomainUploadSessionStatus.Committed;
+        session.CommittedFileId = file.Id;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        // Return response
+        var response = new CommitUploadResponse
+        {
+            Session = MapToDto(session),
+            File = MapFileToDto(file)
+        };
+
+        return Results.Ok(response);
+    }
+
+    /// <summary>
+    /// Determines the file category based on file extension.
+    /// </summary>
+    private static Domain.Enums.FileCategory DetermineFileCategory(string fileName)
+    {
+        var extension = Path.GetExtension(fileName)?.ToLowerInvariant();
+        return extension switch
+        {
+            ".ifc" => Domain.Enums.FileCategory.Ifc,
+            ".ifcxml" => Domain.Enums.FileCategory.Ifc,
+            ".ifczip" => Domain.Enums.FileCategory.Ifc,
+            ".wexbim" => Domain.Enums.FileCategory.WexBim,
+            _ => Domain.Enums.FileCategory.Other
+        };
+    }
+
     private static UploadSessionDto MapToDto(UploadSession session)
     {
         return new UploadSessionDto
@@ -339,6 +508,26 @@ public static class FileUploadEndpoints
             Status = (UploadSessionStatus)(int)session.Status,
             CreatedAt = session.CreatedAt,
             ExpiresAt = session.ExpiresAt
+        };
+    }
+
+    private static FileDto MapFileToDto(FileEntity file)
+    {
+        return new FileDto
+        {
+            Id = file.Id,
+            ProjectId = file.ProjectId,
+            Name = file.Name,
+            ContentType = file.ContentType,
+            SizeBytes = file.SizeBytes,
+            Checksum = file.Checksum,
+            Kind = (FileKind)(int)file.Kind,
+            Category = (FileCategory)(int)file.Category,
+            StorageProvider = file.StorageProvider,
+            StorageKey = file.StorageKey,
+            IsDeleted = file.IsDeleted,
+            CreatedAt = file.CreatedAt,
+            DeletedAt = file.DeletedAt
         };
     }
 }

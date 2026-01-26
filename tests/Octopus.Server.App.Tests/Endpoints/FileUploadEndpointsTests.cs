@@ -761,4 +761,348 @@ public class FileUploadEndpointsTests : IDisposable
     }
 
     #endregion
+
+    #region Commit Upload Tests
+
+    private async Task<UploadContentResponse> UploadFileAsync(Guid projectId, Guid sessionId, byte[] content, string fileName = "test.ifc")
+    {
+        var multipartContent = CreateFileContent(fileName, content);
+        var response = await _client.PostAsync(
+            $"/api/v1/projects/{projectId}/files/uploads/{sessionId}/content",
+            multipartContent);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<UploadContentResponse>())!;
+    }
+
+    [Fact]
+    public async Task CommitUpload_ReturnsOk_WithValidSession()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var reserved = await ReserveUploadAsync(project.Id, "test-model.ifc");
+
+        var fileContent = new byte[] { 0x49, 0x46, 0x43, 0x00, 0x01, 0x02, 0x03 };
+        await UploadFileAsync(project.Id, reserved.Session.Id, fileContent);
+
+        // Act
+        var response = await _client.PostAsJsonAsync(
+            $"/api/v1/projects/{project.Id}/files/uploads/{reserved.Session.Id}/commit",
+            new CommitUploadRequest());
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await response.Content.ReadFromJsonAsync<CommitUploadResponse>();
+        Assert.NotNull(result);
+        Assert.NotNull(result.Session);
+        Assert.NotNull(result.File);
+        Assert.Equal(UploadSessionStatus.Committed, result.Session.Status);
+        Assert.NotEqual(Guid.Empty, result.File.Id);
+        Assert.Equal("test-model.ifc", result.File.Name);
+        Assert.Equal(fileContent.Length, result.File.SizeBytes);
+    }
+
+    [Fact]
+    public async Task CommitUpload_ReturnsFileId()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var reserved = await ReserveUploadAsync(project.Id);
+
+        var fileContent = new byte[] { 0x01, 0x02, 0x03, 0x04 };
+        await UploadFileAsync(project.Id, reserved.Session.Id, fileContent);
+
+        // Act
+        var response = await _client.PostAsJsonAsync(
+            $"/api/v1/projects/{project.Id}/files/uploads/{reserved.Session.Id}/commit",
+            new CommitUploadRequest());
+
+        // Assert
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<CommitUploadResponse>();
+
+        Assert.NotNull(result);
+        Assert.NotEqual(Guid.Empty, result.File.Id);
+    }
+
+    [Fact]
+    public async Task CommitUpload_CreatesFileRecord_WithCorrectProperties()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var reserved = await ReserveUploadAsync(project.Id, "my-model.ifc");
+
+        var fileContent = new byte[] { 0x49, 0x46, 0x43, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
+        await UploadFileAsync(project.Id, reserved.Session.Id, fileContent);
+
+        // Act
+        var response = await _client.PostAsJsonAsync(
+            $"/api/v1/projects/{project.Id}/files/uploads/{reserved.Session.Id}/commit",
+            new CommitUploadRequest { Checksum = "abc123" });
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<CommitUploadResponse>();
+
+        // Assert - verify file row has correct properties
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<OctopusDbContext>();
+
+        var file = await dbContext.Files.FirstOrDefaultAsync(f => f.Id == result!.File.Id);
+
+        Assert.NotNull(file);
+        Assert.Equal(project.Id, file.ProjectId);
+        Assert.Equal("my-model.ifc", file.Name);
+        Assert.Equal(fileContent.Length, file.SizeBytes);
+        Assert.Equal("abc123", file.Checksum);
+        Assert.Equal(Domain.Enums.FileKind.Source, file.Kind);
+        Assert.Equal(Domain.Enums.FileCategory.Ifc, file.Category);
+        Assert.Equal("InMemory", file.StorageProvider);
+        Assert.NotNull(file.StorageKey);
+        Assert.False(file.IsDeleted);
+    }
+
+    [Fact]
+    public async Task CommitUpload_SetsCorrectFileCategory_ForIfcFiles()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var reserved = await ReserveUploadAsync(project.Id, "building.ifc");
+
+        var fileContent = new byte[] { 0x01, 0x02 };
+        await UploadFileAsync(project.Id, reserved.Session.Id, fileContent);
+
+        // Act
+        var response = await _client.PostAsJsonAsync(
+            $"/api/v1/projects/{project.Id}/files/uploads/{reserved.Session.Id}/commit",
+            new CommitUploadRequest());
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<CommitUploadResponse>();
+
+        // Assert
+        Assert.Equal(Contracts.FileCategory.Ifc, result!.File.Category);
+    }
+
+    [Fact]
+    public async Task CommitUpload_SetsOtherFileCategory_ForUnknownExtensions()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var reserved = await ReserveUploadAsync(project.Id, "document.pdf");
+
+        var fileContent = new byte[] { 0x25, 0x50, 0x44, 0x46 };
+        await UploadFileAsync(project.Id, reserved.Session.Id, fileContent);
+
+        // Act
+        var response = await _client.PostAsJsonAsync(
+            $"/api/v1/projects/{project.Id}/files/uploads/{reserved.Session.Id}/commit",
+            new CommitUploadRequest());
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<CommitUploadResponse>();
+
+        // Assert
+        Assert.Equal(Contracts.FileCategory.Other, result!.File.Category);
+    }
+
+    [Fact]
+    public async Task CommitUpload_UpdatesSessionStatus_ToCommitted()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var reserved = await ReserveUploadAsync(project.Id);
+
+        var fileContent = new byte[] { 0x01, 0x02, 0x03 };
+        await UploadFileAsync(project.Id, reserved.Session.Id, fileContent);
+
+        // Act
+        var response = await _client.PostAsJsonAsync(
+            $"/api/v1/projects/{project.Id}/files/uploads/{reserved.Session.Id}/commit",
+            new CommitUploadRequest());
+        response.EnsureSuccessStatusCode();
+
+        // Assert - verify session status in database
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<OctopusDbContext>();
+
+        var session = await dbContext.UploadSessions.FirstOrDefaultAsync(s => s.Id == reserved.Session.Id);
+
+        Assert.NotNull(session);
+        Assert.Equal(Domain.Enums.UploadSessionStatus.Committed, session.Status);
+        Assert.NotNull(session.CommittedFileId);
+    }
+
+    [Fact]
+    public async Task CommitUpload_ReturnsNotFound_WhenSessionDoesNotExist()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+
+        // Act
+        var response = await _client.PostAsJsonAsync(
+            $"/api/v1/projects/{project.Id}/files/uploads/{Guid.NewGuid()}/commit",
+            new CommitUploadRequest());
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CommitUpload_ReturnsBadRequest_WhenSessionIsReserved()
+    {
+        // Arrange - create session but don't upload content
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var reserved = await ReserveUploadAsync(project.Id);
+
+        // Act - try to commit without uploading content
+        var response = await _client.PostAsJsonAsync(
+            $"/api/v1/projects/{project.Id}/files/uploads/{reserved.Session.Id}/commit",
+            new CommitUploadRequest());
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CommitUpload_ReturnsBadRequest_WhenSessionAlreadyCommitted()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var reserved = await ReserveUploadAsync(project.Id);
+
+        var fileContent = new byte[] { 0x01, 0x02, 0x03 };
+        await UploadFileAsync(project.Id, reserved.Session.Id, fileContent);
+
+        // First commit
+        var firstResponse = await _client.PostAsJsonAsync(
+            $"/api/v1/projects/{project.Id}/files/uploads/{reserved.Session.Id}/commit",
+            new CommitUploadRequest());
+        firstResponse.EnsureSuccessStatusCode();
+
+        // Act - try to commit again
+        var response = await _client.PostAsJsonAsync(
+            $"/api/v1/projects/{project.Id}/files/uploads/{reserved.Session.Id}/commit",
+            new CommitUploadRequest());
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CommitUpload_ReturnsBadRequest_WhenSessionIsExpired()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var reserved = await ReserveUploadAsync(project.Id);
+
+        var fileContent = new byte[] { 0x01, 0x02, 0x03 };
+        await UploadFileAsync(project.Id, reserved.Session.Id, fileContent);
+
+        // Manually set session to expired
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<OctopusDbContext>();
+            var session = await dbContext.UploadSessions.FirstAsync(s => s.Id == reserved.Session.Id);
+            session.ExpiresAt = DateTimeOffset.UtcNow.AddHours(-1);
+            await dbContext.SaveChangesAsync();
+        }
+
+        // Act
+        var response = await _client.PostAsJsonAsync(
+            $"/api/v1/projects/{project.Id}/files/uploads/{reserved.Session.Id}/commit",
+            new CommitUploadRequest());
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CommitUpload_ReturnsNotFound_WhenSessionBelongsToDifferentProject()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project1 = await CreateProjectAsync(workspace.Id, "Project 1");
+        var project2 = await CreateProjectAsync(workspace.Id, "Project 2");
+
+        var reserved = await ReserveUploadAsync(project1.Id);
+        var fileContent = new byte[] { 0x01, 0x02, 0x03 };
+        await UploadFileAsync(project1.Id, reserved.Session.Id, fileContent);
+
+        // Act - try to commit via different project
+        var response = await _client.PostAsJsonAsync(
+            $"/api/v1/projects/{project2.Id}/files/uploads/{reserved.Session.Id}/commit",
+            new CommitUploadRequest());
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CommitUpload_ReturnsBadRequest_WhenContentNotInStorage()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var reserved = await ReserveUploadAsync(project.Id);
+
+        var fileContent = new byte[] { 0x01, 0x02, 0x03 };
+        await UploadFileAsync(project.Id, reserved.Session.Id, fileContent);
+
+        // Delete content from storage manually
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<OctopusDbContext>();
+            var session = await dbContext.UploadSessions.FirstAsync(s => s.Id == reserved.Session.Id);
+            _storageProvider.Storage.TryRemove(session.TempStorageKey!, out _);
+        }
+
+        // Act
+        var response = await _client.PostAsJsonAsync(
+            $"/api/v1/projects/{project.Id}/files/uploads/{reserved.Session.Id}/commit",
+            new CommitUploadRequest());
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CommitUpload_LinksSessionToFile()
+    {
+        // Arrange
+        var workspace = await CreateWorkspaceAsync();
+        var project = await CreateProjectAsync(workspace.Id);
+        var reserved = await ReserveUploadAsync(project.Id);
+
+        var fileContent = new byte[] { 0x01, 0x02, 0x03 };
+        await UploadFileAsync(project.Id, reserved.Session.Id, fileContent);
+
+        // Act
+        var response = await _client.PostAsJsonAsync(
+            $"/api/v1/projects/{project.Id}/files/uploads/{reserved.Session.Id}/commit",
+            new CommitUploadRequest());
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<CommitUploadResponse>();
+
+        // Assert - verify session has CommittedFileId
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<OctopusDbContext>();
+
+        var session = await dbContext.UploadSessions.FirstOrDefaultAsync(s => s.Id == reserved.Session.Id);
+
+        Assert.NotNull(session);
+        Assert.Equal(result!.File.Id, session.CommittedFileId);
+    }
+
+    #endregion
 }
