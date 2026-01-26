@@ -5,6 +5,7 @@ using Xbim.Ifc;
 using Xbim.IO;
 using Xbim.ModelGeometry.Scene;
 using Octopus.Blazor.Models;
+using Octopus.Blazor.Services.Abstractions;
 
 namespace Octopus.Blazor.Services;
 
@@ -75,7 +76,7 @@ public class IfcProcessingProgress
 /// Service for opening IFC files and converting them to wexbim format.
 /// Note: This service uses native code and only works in server-side scenarios (Blazor Server, ASP.NET Core).
 /// </summary>
-public class IfcModelService : IDisposable
+public class IfcModelService : IIfcModelService
 {
     private readonly ILogger<IfcModelService>? _logger;
     private readonly Dictionary<int, IModel> _openModels = new();

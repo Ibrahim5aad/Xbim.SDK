@@ -3,6 +3,7 @@
 @using Microsoft.Extensions.DependencyInjection
 @using Octopus.Blazor.Models
 @using Octopus.Blazor.Services
+@using Octopus.Blazor.Services.Abstractions
 @namespace Octopus.Blazor.Components
 @inject NavigationManager NavigationManager
 @inject IServiceProvider ServiceProvider
@@ -207,11 +208,16 @@
 </div>
 
 @code {
-    private IfcModelService? _ifcModelService;
-    private PropertyService? _propertyService;
-    
-    private IfcModelService? IfcModelService => _ifcModelService ??= ServiceProvider.GetService<IfcModelService>();
-    private PropertyService? PropertyService => _propertyService ??= ServiceProvider.GetService<PropertyService>();
+    private IIfcModelService? _ifcModelService;
+    private IPropertyService? _propertyService;
+
+    // Support both interface and concrete type for backward compatibility
+    private IIfcModelService? IfcModelService => _ifcModelService ??=
+        ServiceProvider.GetService<IIfcModelService>() ??
+        ServiceProvider.GetService<IfcModelService>();
+    private IPropertyService? PropertyService => _propertyService ??=
+        ServiceProvider.GetService<IPropertyService>() ??
+        ServiceProvider.GetService<PropertyService>();
     
     [CascadingParameter]
     public OctopusViewer? Viewer { get; set; }

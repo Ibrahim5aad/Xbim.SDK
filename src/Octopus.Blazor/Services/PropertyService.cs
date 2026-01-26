@@ -1,11 +1,12 @@
 using Octopus.Blazor.Models;
+using Octopus.Blazor.Services.Abstractions;
 
 namespace Octopus.Blazor.Services;
 
 /// <summary>
-/// Service for managing property sources and retrieving element properties
+/// Service for managing property sources and retrieving element properties.
 /// </summary>
-public class PropertyService : IDisposable
+public class PropertyService : IPropertyService
 {
     private readonly List<IPropertySource> _sources = new();
     private readonly object _lock = new();

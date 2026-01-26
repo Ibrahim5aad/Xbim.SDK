@@ -1,11 +1,12 @@
 @using Octopus.Blazor.Models
 @using Octopus.Blazor.Services
+@using Octopus.Blazor.Services.Abstractions
 @using Microsoft.JSInterop
 @namespace Octopus.Blazor.Components
 @implements IAsyncDisposable
 @implements IDisposable
 @inject IJSRuntime JSRuntime
-@inject PropertyService? PropertyService
+@inject IPropertyService? PropertyService
 
 @* Toggle button positioned at the panel location *@
 @if (!IsVisible)

@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Octopus.Blazor.Models;
 using Octopus.Blazor.Services;
+using Octopus.Blazor.Services.Abstractions;
 
 namespace Octopus.Blazor;
 
@@ -24,7 +25,7 @@ public static class ServiceCollectionExtensions
     /// Services registered:
     /// <list type="bullet">
     ///   <item><see cref="ThemeService"/> - Theme management (singleton)</item>
-    ///   <item><see cref="PropertyService"/> - Property aggregation (singleton)</item>
+    ///   <item><see cref="IPropertyService"/> / <see cref="PropertyService"/> - Property aggregation (singleton)</item>
     ///   <item><see cref="IfcHierarchyService"/> - Hierarchy generation (singleton)</item>
     /// </list>
     /// </para>
@@ -64,8 +65,9 @@ public static class ServiceCollectionExtensions
         themeService.SetBackgroundColors(options.LightBackgroundColor, options.DarkBackgroundColor);
         services.TryAddSingleton(themeService);
 
-        // Register PropertyService
+        // Register PropertyService as both interface and concrete type for backward compatibility
         services.TryAddSingleton<PropertyService>();
+        services.TryAddSingleton<IPropertyService>(sp => sp.GetRequiredService<PropertyService>());
 
         // Register IfcHierarchyService
         services.TryAddSingleton<IfcHierarchyService>();
@@ -78,7 +80,7 @@ public static class ServiceCollectionExtensions
     /// <para>
     /// This registration extends <see cref="AddOctopusBlazorStandalone"/> with:
     /// <list type="bullet">
-    ///   <item><see cref="IfcModelService"/> - Server-side IFC to WexBIM conversion</item>
+    ///   <item><see cref="IIfcModelService"/> / <see cref="IfcModelService"/> - Server-side IFC to WexBIM conversion</item>
     /// </list>
     /// </para>
     /// <para>
@@ -98,7 +100,7 @@ public static class ServiceCollectionExtensions
     /// <para>
     /// This registration extends <see cref="AddOctopusBlazorStandalone"/> with:
     /// <list type="bullet">
-    ///   <item><see cref="IfcModelService"/> - Server-side IFC to WexBIM conversion</item>
+    ///   <item><see cref="IIfcModelService"/> / <see cref="IfcModelService"/> - Server-side IFC to WexBIM conversion</item>
     /// </list>
     /// </para>
     /// <para>
@@ -116,8 +118,9 @@ public static class ServiceCollectionExtensions
         // Add standalone services first
         services.AddOctopusBlazorStandalone(configure);
 
-        // Add server-specific services
+        // Add server-specific services as both interface and concrete type for backward compatibility
         services.TryAddSingleton<IfcModelService>();
+        services.TryAddSingleton<IIfcModelService>(sp => sp.GetRequiredService<IfcModelService>());
 
         return services;
     }
