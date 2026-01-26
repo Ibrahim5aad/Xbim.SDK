@@ -1,4 +1,4 @@
-namespace Octopus.Server.Contracts.V1;
+namespace Octopus.Server.Contracts;
 
 /// <summary>
 /// Represents a BIM model.
