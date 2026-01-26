@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Octopus.Server.Abstractions.Auth;
 using Octopus.Server.App.Auth;
+using Octopus.Server.App.Endpoints;
 using Octopus.Server.Domain.Enums;
 using Octopus.Server.Persistence.EfCore;
 using Octopus.Server.Persistence.EfCore.Extensions;
@@ -11,8 +12,12 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 
 // Add persistence (SQLite for development by default)
-var connectionString = builder.Configuration.GetConnectionString("OctopusDb") ?? "Data Source=octopus.db";
-builder.Services.AddOctopusSqlite(connectionString);
+// Skip if in Testing environment - tests configure their own in-memory database
+if (!builder.Environment.EnvironmentName.Equals("Testing", StringComparison.OrdinalIgnoreCase))
+{
+    var connectionString = builder.Configuration.GetConnectionString("OctopusDb") ?? "Data Source=octopus.db";
+    builder.Services.AddOctopusSqlite(connectionString);
+}
 
 // Configure authentication mode based on configuration
 var authMode = builder.Configuration.GetValue<string>("Auth:Mode") ?? "Development";
@@ -82,8 +87,10 @@ builder.Services.AddSwaggerGen(options =>
 var app = builder.Build();
 
 // Apply pending migrations on startup (development convenience)
-using (var scope = app.Services.CreateScope())
+// Skip migrations for InMemory database (used in testing)
+if (!app.Environment.EnvironmentName.Equals("Testing", StringComparison.OrdinalIgnoreCase))
 {
+    using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<OctopusDbContext>();
     dbContext.Database.Migrate();
 }
@@ -145,6 +152,9 @@ app.UseUserProvisioning();
 
 // Map Aspire default endpoints (/health, /alive)
 app.MapDefaultEndpoints();
+
+// Map API endpoints
+app.MapWorkspaceEndpoints();
 
 app.MapGet("/healthz", () => Results.Ok(new { status = "healthy" }))
    .WithName("HealthCheck")
@@ -234,3 +244,6 @@ app.MapGet("/api/v1/projects/{projectId}/require-admin", async (
 .RequireAuthorization();
 
 app.Run();
+
+// Make the implicit Program class public so it can be used in integration tests
+public partial class Program { }
