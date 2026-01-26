@@ -46,7 +46,10 @@ public class ProjectConfiguration : IEntityTypeConfiguration<Project>
             .HasForeignKey(us => us.ProjectId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Ignore Models navigation property for now (M4 feature)
-        builder.Ignore(p => p.Models);
+        // One project has many models
+        builder.HasMany(p => p.Models)
+            .WithOne(m => m.Project)
+            .HasForeignKey(m => m.ProjectId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

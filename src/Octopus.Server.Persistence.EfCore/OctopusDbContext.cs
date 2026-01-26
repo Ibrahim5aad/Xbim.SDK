@@ -22,6 +22,8 @@ public class OctopusDbContext : DbContext
     public DbSet<FileEntity> Files => Set<FileEntity>();
     public DbSet<FileLink> FileLinks => Set<FileLink>();
     public DbSet<UploadSession> UploadSessions => Set<UploadSession>();
+    public DbSet<Model> Models => Set<Model>();
+    public DbSet<ModelVersion> ModelVersions => Set<ModelVersion>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
