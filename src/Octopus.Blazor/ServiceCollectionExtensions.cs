@@ -3,7 +3,10 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Octopus.Blazor.Models;
 using Octopus.Blazor.Services;
 using Octopus.Blazor.Services.Abstractions;
+using Octopus.Blazor.Services.Abstractions.Server;
+using Octopus.Blazor.Services.Server;
 using Octopus.Blazor.Services.WexBimSources;
+using Octopus.Client;
 
 namespace Octopus.Blazor;
 
@@ -196,5 +199,160 @@ public static class ServiceCollectionExtensions
         Action<OctopusBlazorOptions> configure)
     {
         return services.AddOctopusBlazorStandalone(configure);
+    }
+
+    /// <summary>
+    /// Adds Octopus.Blazor services with server connectivity for full application functionality.
+    /// <para>
+    /// This registration includes:
+    /// <list type="bullet">
+    ///   <item>All standalone services (themes, properties, WexBIM sources)</item>
+    ///   <item>Server-backed services for workspaces, projects, files, models, usage, and processing</item>
+    ///   <item>Octopus API client with optional authentication</item>
+    /// </list>
+    /// </para>
+    /// <para>
+    /// <strong>Prerequisites:</strong>
+    /// <list type="bullet">
+    ///   <item>A running Octopus.Server instance</item>
+    ///   <item>Valid base URL configuration</item>
+    ///   <item>Optional: Authentication token provider for secured endpoints</item>
+    /// </list>
+    /// </para>
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="baseUrl">The base URL of the Octopus API server.</param>
+    /// <returns>The service collection for chaining.</returns>
+    /// <exception cref="ArgumentException">Thrown if baseUrl is null or empty.</exception>
+    public static IServiceCollection AddOctopusBlazorServerConnected(
+        this IServiceCollection services,
+        string baseUrl)
+    {
+        return services.AddOctopusBlazorServerConnected(baseUrl, _ => { });
+    }
+
+    /// <summary>
+    /// Adds Octopus.Blazor services with server connectivity and custom Blazor options.
+    /// <para>
+    /// This registration includes:
+    /// <list type="bullet">
+    ///   <item>All standalone services (themes, properties, WexBIM sources)</item>
+    ///   <item>Server-backed services for workspaces, projects, files, models, usage, and processing</item>
+    ///   <item>Octopus API client with optional authentication</item>
+    /// </list>
+    /// </para>
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="baseUrl">The base URL of the Octopus API server.</param>
+    /// <param name="configureBlazor">An action to configure the <see cref="OctopusBlazorOptions"/>.</param>
+    /// <returns>The service collection for chaining.</returns>
+    /// <exception cref="ArgumentException">Thrown if baseUrl is null or empty.</exception>
+    public static IServiceCollection AddOctopusBlazorServerConnected(
+        this IServiceCollection services,
+        string baseUrl,
+        Action<OctopusBlazorOptions> configureBlazor)
+    {
+        return services.AddOctopusBlazorServerConnected(baseUrl, configureBlazor, _ => { });
+    }
+
+    /// <summary>
+    /// Adds Octopus.Blazor services with server connectivity and authentication.
+    /// <para>
+    /// This registration includes:
+    /// <list type="bullet">
+    ///   <item>All standalone services (themes, properties, WexBIM sources)</item>
+    ///   <item>Server-backed services for workspaces, projects, files, models, usage, and processing</item>
+    ///   <item>Octopus API client with token-based authentication</item>
+    /// </list>
+    /// </para>
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="baseUrl">The base URL of the Octopus API server.</param>
+    /// <param name="tokenProvider">The token provider for authentication.</param>
+    /// <returns>The service collection for chaining.</returns>
+    /// <exception cref="ArgumentException">Thrown if baseUrl is null or empty.</exception>
+    public static IServiceCollection AddOctopusBlazorServerConnected(
+        this IServiceCollection services,
+        string baseUrl,
+        IAuthTokenProvider tokenProvider)
+    {
+        return services.AddOctopusBlazorServerConnected(baseUrl, _ => { }, options =>
+        {
+            options.TokenProvider = tokenProvider;
+        });
+    }
+
+    /// <summary>
+    /// Adds Octopus.Blazor services with server connectivity and a token factory function.
+    /// <para>
+    /// This registration includes:
+    /// <list type="bullet">
+    ///   <item>All standalone services (themes, properties, WexBIM sources)</item>
+    ///   <item>Server-backed services for workspaces, projects, files, models, usage, and processing</item>
+    ///   <item>Octopus API client with token-based authentication</item>
+    /// </list>
+    /// </para>
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="baseUrl">The base URL of the Octopus API server.</param>
+    /// <param name="tokenFactory">A function that provides authentication tokens.</param>
+    /// <returns>The service collection for chaining.</returns>
+    /// <exception cref="ArgumentException">Thrown if baseUrl is null or empty.</exception>
+    public static IServiceCollection AddOctopusBlazorServerConnected(
+        this IServiceCollection services,
+        string baseUrl,
+        Func<Task<string?>> tokenFactory)
+    {
+        return services.AddOctopusBlazorServerConnected(baseUrl, _ => { }, options =>
+        {
+            options.TokenFactory = _ => tokenFactory();
+        });
+    }
+
+    /// <summary>
+    /// Adds Octopus.Blazor services with server connectivity and full configuration control.
+    /// <para>
+    /// This registration includes:
+    /// <list type="bullet">
+    ///   <item>All standalone services (themes, properties, WexBIM sources)</item>
+    ///   <item>Server-backed services for workspaces, projects, files, models, usage, and processing</item>
+    ///   <item>Octopus API client with configurable authentication</item>
+    /// </list>
+    /// </para>
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="baseUrl">The base URL of the Octopus API server.</param>
+    /// <param name="configureBlazor">An action to configure the <see cref="OctopusBlazorOptions"/>.</param>
+    /// <param name="configureClient">An action to configure the <see cref="OctopusClientOptions"/>.</param>
+    /// <returns>The service collection for chaining.</returns>
+    /// <exception cref="ArgumentException">Thrown if baseUrl is null or empty.</exception>
+    public static IServiceCollection AddOctopusBlazorServerConnected(
+        this IServiceCollection services,
+        string baseUrl,
+        Action<OctopusBlazorOptions> configureBlazor,
+        Action<OctopusClientOptions> configureClient)
+    {
+        if (string.IsNullOrEmpty(baseUrl))
+            throw new ArgumentException("BaseUrl must be provided.", nameof(baseUrl));
+
+        // Add standalone services first
+        services.AddOctopusBlazorStandalone(configureBlazor);
+
+        // Add the Octopus API client
+        services.AddOctopusClient(options =>
+        {
+            options.BaseUrl = baseUrl;
+            configureClient(options);
+        });
+
+        // Register server-backed services
+        services.TryAddSingleton<IWorkspacesService, WorkspacesService>();
+        services.TryAddSingleton<IProjectsService, ProjectsService>();
+        services.TryAddSingleton<IFilesService, FilesService>();
+        services.TryAddSingleton<IModelsService, ModelsService>();
+        services.TryAddSingleton<IUsageService, UsageService>();
+        services.TryAddSingleton<IProcessingService, ProcessingService>();
+
+        return services;
     }
 }
