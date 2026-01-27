@@ -1,429 +1,327 @@
-# Octopus.Blazor
+# Octopus
 
-[![NuGet](https://img.shields.io/nuget/v/Octopus.Blazor.svg?style=flat-square)](https://www.nuget.org/packages/Octopus.Blazor/)
-[![NuGet Downloads](https://img.shields.io/nuget/dt/Octopus.Blazor.svg?style=flat-square)](https://www.nuget.org/packages/Octopus.Blazor/)
 [![Build Status](https://github.com/Ibrahim5aad/Octopus/actions/workflows/publish-nuget.yml/badge.svg)](https://github.com/Ibrahim5aad/Octopus/actions/workflows/publish-nuget.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A Blazor component library that wraps the @xbim/viewer JavaScript library for use in Blazor applications. This library allows you to display 3D building models in the wexBIM format. **Blazor Server applications can also load IFC files directly**, which are automatically converted to wexBIM format for visualization.
+An open-source SDK and scaffold for building BIM (Building Information Modeling) applications with .NET 9. Octopus provides reusable components, a REST API server, and client libraries to accelerate the development of custom BIM solutions.
 
-![Octopus.Blazor in action](screenshot.png)
+| Package | NuGet |
+|---------|-------|
+| Octopus.Blazor | [![NuGet](https://img.shields.io/nuget/v/Octopus.Blazor.svg?style=flat-square)](https://www.nuget.org/packages/Octopus.Blazor/) |
+| Octopus.Client | [![NuGet](https://img.shields.io/nuget/v/Octopus.Client.svg?style=flat-square)](https://www.nuget.org/packages/Octopus.Client/) |
 
-## Project Structure
+![Octopus Viewer](screenshot.png)
 
-- **Octopus.Blazor**: The component library project
-  - **Components/**: Blazor components (Viewer, Sidebar, Panels, etc.)
-  - **Interop/**: JavaScript interop services
-  - **Models/**: Data models and enums
-  - **Services/**: Services (Theme, Properties, IFC processing, etc.)
-  - **wwwroot/js/**: JavaScript interop modules
-  - **wwwroot/lib/**: Third-party libraries (xBIM Viewer)
+## What is Octopus?
 
-- **Octopus.Blazor.Sample**: WebAssembly sample application showcasing the library
-- **Octopus.Blazor.Server.Sample**: Blazor Server sample application with IFC file loading support
+Octopus is a toolkit for developers building BIM applications. It provides:
+
+- **Blazor Component Library** - Drop-in 3D viewer components for visualizing IFC/wexBIM models
+- **REST API Server** - Ready-to-deploy backend for model storage, processing, and management
+- **Generated API Client** - Typed HTTP client for seamless server integration
+- **Reference Implementation** - Full web application demonstrating all capabilities
+
+### Two Development Modes
+
+The Blazor component library supports two modes to fit different use cases:
+
+| Mode | Use Case | Features |
+|------|----------|----------|
+| **Standalone** | Simple viewer apps, demos, embedded viewers | Load wexBIM files directly, no backend required, IFC processing in Blazor Server |
+| **Platform** | Full BIM applications with model management | Connect to Octopus Server for storage, versioning, collaboration, and cloud processing |
+
+Choose **Standalone** mode when you need a lightweight viewer without server infrastructure. Choose **Platform** mode when building applications that require model persistence, user management, or team collaboration.
+
+## Architecture
+
+```
+Octopus/
+├── src/
+│   ├── Octopus.Blazor           # Blazor component library (NuGet package)
+│   ├── Octopus.Client           # Generated API client (NuGet package)
+│   ├── Octopus.Web              # Blazor Server web application
+│   ├── Octopus.Server.App       # ASP.NET Core REST API
+│   ├── Octopus.Server.Domain    # Domain entities
+│   ├── Octopus.Server.Contracts # DTOs and API contracts
+│   ├── Octopus.Server.Abstractions    # Interfaces and abstractions
+│   ├── Octopus.Server.Persistence.EfCore  # Entity Framework Core data access
+│   ├── Octopus.Server.Processing      # Background job processing
+│   ├── Octopus.Server.Storage.LocalDisk   # Local disk storage provider
+│   ├── Octopus.Server.Storage.AzureBlob   # Azure Blob storage provider
+│   ├── Octopus.ServiceDefaults  # .NET Aspire shared configuration
+│   └── Octopus.AppHost          # .NET Aspire orchestration
+├── samples/
+│   ├── Octopus.Blazor.Sample        # WebAssembly standalone demo
+│   └── Octopus.Blazor.Server.Sample # Blazor Server demo with IFC support
+└── tests/
+    └── ...                      # Unit and integration tests
+```
 
 ## Features
 
-- Base JavaScript interop infrastructure
-- Structured approach to wrapping JavaScript libraries
-- xBIM Viewer component for displaying wexBIM 3D models
-- Controls for loading models, zooming, and manipulating the view
-- **Direct IFC file loading in Blazor Server applications** - automatically converts IFC files to wexBIM format
-- Extensible properties system for displaying element properties from multiple sources
-- Theme support (light/dark) with customizable accent colors
-- **Sidebar docking system** - dockable panels with overlay and docked modes
-- **Model hierarchy panel** - view product types and spatial structure of loaded models
+### Server Features
+- **Model Management** - Workspaces, projects, models, and versioning
+- **IFC Processing** - Automatic conversion to wexBIM format using xBIM Geometry Engine
+- **Property Extraction** - Extract and store IFC properties in database for fast retrieval
+- **Multiple Storage Backends** - Local disk or Azure Blob Storage
+- **Background Processing** - Async job queue for long-running operations
+- **Role-Based Access** - Workspace and project membership with Owner/Member/Viewer roles
 
-## Installation
+### Viewer Features
+- **3D BIM Visualization** - WebGL-based viewer using @xbim/viewer
+- **Plugin System** - Navigation cube, grid, section box, clipping planes
+- **Sidebar Docking** - Dockable/overlay panels for properties and hierarchy
+- **Property Display** - Multi-source property aggregation from IFC, database, or custom sources
+- **Model Hierarchy** - Product types and spatial structure navigation
+- **Theming** - Light/dark themes with customizable accent colors
+- **Direct IFC Loading** - Server-side IFC to wexBIM conversion (Blazor Server only)
 
-Install the package from NuGet:
+## Quick Start
+
+### Standalone Mode (No Server)
+
+For simple viewer applications without backend infrastructure:
 
 ```bash
 dotnet add package Octopus.Blazor
 ```
 
-Or via the Visual Studio Package Manager:
+Register services in `Program.cs`:
 
+```csharp
+builder.Services.AddOctopusBlazorStandalone();
 ```
-Install-Package Octopus.Blazor
-```
 
-## Getting Started
-
-### Using the Components
-
-Then add the following to your `_Imports.razor` file:
+Add to `_Imports.razor`:
 
 ```razor
 @using Octopus.Blazor
 @using Octopus.Blazor.Components
 ```
 
-Example usage of the Octopus Viewer component:
+Use the viewer component:
 
 ```razor
 <OctopusViewer Id="myViewer"
-                    Width="800"
-                    Height="600"
-                    BackgroundColor="#F5F5F5"
-                    ModelUrl="models/SampleModel.wexbim"
-                    OnViewerInitialized="HandleViewerInitialized"
-                    OnModelLoaded="HandleModelLoaded" />
-
-@code {
-    private async Task HandleViewerInitialized(string viewerId)
-    {
-        // The viewer has been initialized
-    }
-    
-    private async Task HandleModelLoaded(bool success)
-    {
-        // The model has been loaded
-    }
-}
-```
-
-## Theming and Customization
-
-The library supports light and dark themes with customizable accent colors.
-
-### Setting Up the Theme Service
-
-Register the `ThemeService` in your `Program.cs`:
-
-```csharp
-using Octopus.Blazor.Services;
-using Octopus.Blazor.Models;
-
-var themeService = new ThemeService();
-themeService.SetTheme(ViewerTheme.Dark);
-themeService.SetAccentColors(
-    lightColor: "#0969da",
-    darkColor: "#4da3ff"
-);
-builder.Services.AddSingleton(themeService);
-```
-
-### Using the Theme Service
-
-Inject and use the theme service in your components:
-
-```razor
-@inject ThemeService ThemeService
-
-<button @onclick="ToggleTheme">Toggle Theme</button>
-
-@code {
-    private void ToggleTheme()
-    {
-        ThemeService.ToggleTheme();
-    }
-    
-    protected override async Task OnInitializedAsync()
-    {
-        ThemeService.OnThemeChanged += StateHasChanged;
-    }
-}
-```
-
-### Customizing Accent Colors
-
-You can change the accent colors at runtime:
-
-```csharp
-ThemeService.SetAccentColors(
-    lightColor: "#d73a49",
-    darkColor: "#ff6b6b"
-);
-```
-
-The accent color is used for:
-- Highlighted elements
-- Active buttons
-- Selected navigation modes
-- Button group labels
-- Focus indicators
-
-### Customizing Selection and Hover Colors
-
-You can customize the colors used when elements are selected or hovered:
-
-```csharp
-ThemeService.SetSelectionAndHoverColors(
-    selectionColor: "#ff6b6b",  // Red for selection
-    hoverColor: "#4da3ff"        // Blue for hover
-);
-```
-
-## Element Properties
-
-The library provides a flexible properties system that allows displaying element properties from various sources.
-
-### Property Sources
-
-Property sources provide element properties from different data sources:
-
-1. **IfcPropertySource**: Reads properties directly from IFC models using xBIM Essentials
-2. **DictionaryPropertySource**: Stores properties in memory (great for demos or caching)
-3. **CustomPropertySource**: Integrates with any custom data source (databases, APIs, etc.)
-
-### Setting Up IFC Property Source
-
-To read properties from IFC files, you need to load the IFC model using xBIM Essentials:
-
-```csharp
-using Xbim.Ifc;
-using Octopus.Blazor.Services;
-
-// Load IFC model
-var model = IfcStore.Open("path/to/model.ifc");
-
-// Create property source (viewerModelId is the ID returned when loading the wexbim file)
-var propertySource = new IfcPropertySource(model, viewerModelId);
-
-// Register with the property service
-propertyService.RegisterSource(propertySource);
-```
-
-### Using the Properties Panel
-
-The `PropertiesPanel` auto-injects `PropertyService` and subscribes to pick events:
-
-```razor
-<OctopusViewer @ref="_viewer" ...>
-    <PropertiesPanel />
-</OctopusViewer>
-```
-
-### Custom Property Source Example
-
-Create a custom property source for integration with databases or APIs using `CustomPropertySource`:
-
-```csharp
-// In Program.cs
-var propertyService = new PropertyService();
-
-var apiPropertySource = new CustomPropertySource(
-    async (query, ct) =>
-    {
-        // Simulate API latency
-        await Task.Delay(100, ct);
-        
-        // Fetch properties from your database/API
-        var data = await myApiClient.GetElementPropertiesAsync(query.ElementId, query.ModelId);
-        
-        return new ElementProperties
-        {
-            ElementId = query.ElementId,
-            ModelId = query.ModelId,
-            Name = data.Name,
-            TypeName = data.TypeName,
-            Groups = new List<PropertyGroup>
-            {
-                new PropertyGroup
-                {
-                    Name = "API Data",
-                    Source = "REST API",
-                    Properties = data.Properties.Select(p => new PropertyValue
-                    {
-                        Name = p.Name,
-                        Value = p.Value,
-                        ValueType = p.ValueType
-                    }).ToList()
-                }
-            }
-        };
-    },
-    sourceType: "REST API",
-    name: "API Properties"
-);
-
-propertyService.RegisterSource(apiPropertySource);
-builder.Services.AddSingleton(propertyService);
-```
-
-The `CustomPropertySource` constructor accepts:
-- `propertyProvider`: An async function that takes a `PropertyQuery` and returns `ElementProperties?`
-- `sourceType`: A string identifier for the source (e.g., "Database", "REST API")
-- `modelIds`: Optional array of model IDs this source supports (empty = all models)
-- `name`: Display name for the source
-
-### In-Memory Properties (Dictionary Source)
-
-For simple use cases or demos:
-
-```csharp
-var dictSource = new DictionaryPropertySource(name: "Demo Properties");
-
-// Add properties for specific elements
-dictSource.AddProperty(elementId: 123, modelId: 0, 
-    groupName: "Custom", 
-    propertyName: "Status", 
-    value: "Approved");
-
-propertyService.RegisterSource(dictSource);
-```
-
-## Sidebar Docking System
-
-The library includes a flexible sidebar system that allows you to dock panels alongside the viewer or display them as overlays.
-
-### Using ViewerSidebar
-
-The `ViewerSidebar` component provides a dockable sidebar with icon-based panel management. Panels inside the sidebar automatically receive the `OctopusViewer` via cascading parameters:
-
-```razor
-<OctopusViewer @ref="_viewer" ...>
-    <ViewerSidebar Position="SidebarPosition.Left">
-        <SidebarPanel Title="Properties" Icon="bi-info-circle" @bind-IsOpen="_showProperties">
+               Width="800"
+               Height="600"
+               ModelUrl="models/SampleModel.wexbim"
+               OnModelLoaded="HandleModelLoaded">
+    <ViewerToolbar Position="ToolbarPosition.Top" />
+    <ViewerSidebar Position="SidebarPosition.Right">
+        <SidebarPanel Title="Properties" Icon="bi-info-circle">
             <PropertiesPanel ShowHeader="false" />
-        </SidebarPanel>
-        
-        <SidebarPanel Title="Hierarchy" Icon="bi-diagram-3" @bind-IsOpen="_showHierarchy">
-            <ModelHierarchyPanel ShowHeader="false" />
         </SidebarPanel>
     </ViewerSidebar>
 </OctopusViewer>
 ```
 
-Both `PropertiesPanel` and `ModelHierarchyPanel` are self-contained - they automatically inject their required services and subscribe to viewer events.
+In standalone mode, you can:
+- Load wexBIM files from URLs or byte arrays
+- Process IFC files directly (Blazor Server only)
+- Display properties from IFC models or custom sources
+- Use all viewer plugins and UI components
 
-### Sidebar Features
+### Platform Mode (With Octopus Server)
 
-- **Docked Mode**: Panels are docked alongside the viewer, resizing the canvas automatically
-- **Overlay Mode**: Panels appear as overlays on top of the viewer
-- **Icon Bar**: Quick access to panels via icon buttons
-- **Single Panel**: Only one panel is visible at a time
-- **Dynamic Resizing**: Canvas automatically adjusts when panels are docked
+For full BIM applications with model management, storage, and collaboration:
 
-### SidebarPanel Component
-
-Each panel within the sidebar is wrapped in a `SidebarPanel` component:
-
-```razor
-<SidebarPanel Title="My Panel" Icon="bi-gear" IsOpen="@_isOpen">
-    <!-- Your panel content -->
-</SidebarPanel>
+```bash
+dotnet add package Octopus.Blazor
+dotnet add package Octopus.Client
 ```
 
-The `SidebarPanel` provides:
-- Toggle dock/overlay button
-- Close button
-- Automatic registration with parent `ViewerSidebar`
-
-## Model Hierarchy Panel
-
-The `ModelHierarchyPanel` displays model structure in two tabs:
-
-- **Product Types**: IFC entity types with element counts
-- **Spatial Structure**: Project → Site → Building → Storey hierarchy (Blazor Server only)
-
-The panel auto-refreshes when models are loaded/unloaded and supports multiple models with collapsible headers.
-
-```razor
-<OctopusViewer @ref="_viewer" ...>
-    <ModelHierarchyPanel />
-</OctopusViewer>
-```
-
-For spatial structure (Blazor Server only), register `IfcHierarchyService`:
+Register services in `Program.cs`:
 
 ```csharp
-// Program.cs
-builder.Services.AddSingleton<IfcHierarchyService>();
+builder.Services.AddOctopusClient(options =>
+{
+    options.BaseUrl = "https://your-octopus-server.com";
+});
+builder.Services.AddOctopusBlazorPlatform();
 ```
 
-## Loading IFC Files Directly
+In platform mode, you additionally get:
+- Cloud storage for models (Azure Blob, local disk)
+- Model versioning and history
+- Workspace and project organization
+- User authentication and role-based access
+- Server-side IFC processing with job queues
+- Property extraction and database storage
 
-**⚠️ Important: IFC file loading is only available in Blazor Server applications**, not in Blazor WebAssembly.
+### Running the Server
 
-The library supports loading IFC files directly and automatically converting them to wexBIM format for visualization. This functionality uses the [xBIM Geometry Engine v6](https://github.com/xBimTeam/XbimGeometry/tree/feature/netcore) and requires server-side execution (Blazor Server or ASP.NET Core API).
+1. Configure the database and storage in `appsettings.json`:
 
-### Why Server-Side Only?
-
-IFC processing requires native code from the xBIM Geometry Engine, which cannot run in WebAssembly browsers. For Blazor WebAssembly applications, you'll need to:
-- Pre-convert IFC files to wexBIM format, or
-- Create a server-side API endpoint to process IFC files and return wexbim data
-
-### Setting Up IFC Loading (Blazor Server)
-
-```csharp
-// In Program.cs
-builder.Services.AddSingleton<IfcModelService>();
-builder.Services.AddSingleton<PropertyService>();
-```
-
-### Processing IFC Files
-
-```csharp
-@inject IfcModelService IfcService
-@inject PropertyService PropertyService
-
-@code {
-    private async Task LoadIfcFile(byte[] ifcData, string fileName)
-    {
-        // Process the IFC file - generates wexbim and keeps IModel for properties
-        var result = await IfcService.ProcessIfcBytesAsync(
-            ifcData, 
-            fileName,
-            new Progress<IfcProcessingProgress>(p => 
-            {
-                Console.WriteLine($"{p.Stage}: {p.Message} ({p.PercentComplete}%)");
-            }));
-        
-        if (result.Success && result.WexbimData != null)
-        {
-            // Load the generated wexbim into the viewer
-            var loadedModel = await Viewer.LoadModelFromBytesAsync(
-                result.WexbimData, 
-                fileName);
-            
-            if (loadedModel != null && result.Model != null)
-            {
-                // Store the IFC model reference for property access
-                loadedModel.IfcModel = result.Model;
-                loadedModel.OriginalFormat = ModelFormat.Ifc;
-                
-                // Register property source for this model
-                var propertySource = new IfcPropertySource(result.Model, loadedModel.Id);
-                PropertyService.RegisterSource(propertySource);
-            }
-        }
+```json
+{
+  "Database": {
+    "Provider": "Sqlite"
+  },
+  "Storage": {
+    "Provider": "LocalDisk",
+    "LocalDisk": {
+      "BasePath": "octopus-storage"
     }
+  }
 }
 ```
 
-### FileLoaderPanel with IFC Support
+2. Run the server:
 
-The `FileLoaderPanel` component automatically supports IFC files when `AllowIfcFiles="true"`:
-
-```razor
-<FileLoaderPanel 
-    IsVisible="true"
-    AllowIfcFiles="true"
-    OnFileLoaded="HandleFileLoaded" />
+```bash
+dotnet run --project src/Octopus.Server.App
 ```
 
-The panel will:
-- Accept `.ifc`, `.ifczip`, and `.wexbim` files
-- Show appropriate icons and badges for each format
-- Display a note when IFC files will be processed
+### Running with .NET Aspire
 
+For local development with full orchestration:
 
-## wexBIM Format
+```bash
+dotnet run --project src/Octopus.AppHost
+```
 
-The viewer requires 3D models in the wexBIM format. You can convert IFC models to wexBIM using tools from the [XbimEssentials](https://github.com/xBimTeam/XbimEssentials) library, or use the built-in `IfcModelService` (server-side only).
+## Server Configuration
+
+### Database Providers
+
+**SQLite** (Development):
+```json
+{
+  "Database": {
+    "Provider": "Sqlite"
+  }
+}
+```
+
+**SQL Server** (Production):
+```json
+{
+  "Database": {
+    "Provider": "SqlServer"
+  },
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=...;Database=Octopus;..."
+  }
+}
+```
+
+### Storage Providers
+
+**Local Disk**:
+```json
+{
+  "Storage": {
+    "Provider": "LocalDisk",
+    "LocalDisk": {
+      "BasePath": "octopus-storage"
+    }
+  }
+}
+```
+
+**Azure Blob Storage**:
+```json
+{
+  "Storage": {
+    "Provider": "AzureBlob",
+    "AzureBlob": {
+      "ConnectionString": "...",
+      "ContainerName": "octopus-models"
+    }
+  }
+}
+```
+
+### Authentication
+
+**Development Mode** (auto-injects test user):
+```json
+{
+  "Auth": {
+    "Mode": "Development",
+    "Dev": {
+      "Subject": "dev-user",
+      "Email": "dev@localhost",
+      "DisplayName": "Development User"
+    }
+  }
+}
+```
+
+**JWT Bearer** (Production):
+```json
+{
+  "Auth": {
+    "Mode": "Bearer"
+  }
+}
+```
+
+## API Endpoints
+
+The server exposes RESTful endpoints for:
+
+| Endpoint | Description |
+|----------|-------------|
+| `/api/v1/workspaces` | Workspace management |
+| `/api/v1/projects` | Project management |
+| `/api/v1/models` | Model management |
+| `/api/v1/models/{id}/versions` | Model versioning |
+| `/api/v1/files` | File metadata |
+| `/api/v1/files/upload` | File upload |
+| `/api/v1/properties` | Element properties |
+| `/api/v1/usage` | Storage usage statistics |
+
+Full API documentation available at `/swagger` when running the server.
 
 ## Development
 
-To build and run the sample project:
+### Prerequisites
+
+- .NET 9.0 SDK
+- Node.js 20+ (for TypeScript compilation)
+- SQL Server or SQLite
+
+### Building
 
 ```bash
 git clone https://github.com/Ibrahim5aad/Octopus.git
 cd Octopus
 dotnet build
-dotnet run --project src/Octopus.Blazor.Sample/Octopus.Blazor.Sample.csproj
 ```
+
+### Running Tests
+
+```bash
+dotnet test
+```
+
+### Running Samples
+
+**WebAssembly Sample** (standalone viewer):
+```bash
+dotnet run --project samples/Octopus.Blazor.Sample
+```
+
+**Blazor Server Sample** (with IFC processing):
+```bash
+dotnet run --project samples/Octopus.Blazor.Server.Sample
+```
+
+## Documentation
+
+- [Octopus.Blazor Component Library](src/Octopus.Blazor/README.md)
+- [Octopus.Client API Client](src/Octopus.Client/README.md)
+
+## Technology Stack
+
+- **Frontend**: Blazor (Server/WebAssembly), @xbim/viewer, TypeScript
+- **Backend**: ASP.NET Core 9, Entity Framework Core 9
+- **BIM Processing**: xBIM Essentials, xBIM Geometry Engine
+- **Storage**: Local Disk, Azure Blob Storage
+- **Orchestration**: .NET Aspire
+- **Observability**: OpenTelemetry
 
 ## License
 
@@ -431,4 +329,5 @@ MIT
 
 ## Acknowledgements
 
-This project uses the [@xbim/viewer](https://www.npmjs.com/package/@xbim/viewer) JavaScript library from the [xBimTeam](https://github.com/xBimTeam/XbimWebUI). 
+- [@xbim/viewer](https://www.npmjs.com/package/@xbim/viewer) - WebGL BIM viewer
+- [xBIM Toolkit](https://github.com/xBimTeam) - .NET BIM libraries
