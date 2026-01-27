@@ -10,6 +10,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Octopus.Blazor\Octopus.Blazor.csproj" />
     <ProjectReference Include="..\Octopus.Client\Octopus.Client.csproj" />
+    <ProjectReference Include="..\Octopus.ServiceDefaults\Octopus.ServiceDefaults.csproj" />
   </ItemGroup>
 
 </Project>

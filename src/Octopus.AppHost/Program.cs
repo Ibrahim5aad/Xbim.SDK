@@ -4,8 +4,11 @@ var builder = DistributedApplication.CreateBuilder(args);
 var server = builder.AddProject<Projects.Octopus_Server_App>("octopus-server")
     .WithExternalHttpEndpoints();
 
-// Future: Add web app and database resources
-// var web = builder.AddProject<Projects.Octopus_Web>("octopus-web")
-//     .WithReference(server);
+// Add the Octopus Web app with reference to the server
+// The web app uses service discovery to connect to the server via "http://octopus-server"
+var web = builder.AddProject<Projects.Octopus_Web>("octopus-web")
+    .WithExternalHttpEndpoints()
+    .WithReference(server)
+    .WaitFor(server);
 
 builder.Build().Run();
