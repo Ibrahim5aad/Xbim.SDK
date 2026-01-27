@@ -207,3 +207,41 @@ main {
     flex: 1;
     overflow: hidden;
 }
+
+.viewer-header-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.5), transparent);
+    z-index: 100;
+    pointer-events: none;
+}
+
+.viewer-header-overlay > * {
+    pointer-events: auto;
+}
+
+.viewer-header-overlay .model-info {
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.viewer-header-overlay .model-info .text-muted {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.viewer-header-overlay .btn {
+    background-color: rgba(255, 255, 255, 0.9);
+    border-color: rgba(255, 255, 255, 0.9);
+    color: #333;
+}
+
+.viewer-header-overlay .btn:hover {
+    background-color: #fff;
+    border-color: #fff;
+}

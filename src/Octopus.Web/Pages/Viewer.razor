@@ -1,4 +1,9 @@
 @page "/viewer"
+@layout ViewerLayout
+@using Octopus.Blazor.Components
+@using Octopus.Blazor.Components.BuiltInButtons
+@using Octopus.Blazor.Interop
+@using Octopus.Blazor.Models
 @inject IModelsService ModelsService
 @inject IProcessingService ProcessingService
 @inject NavigationManager Navigation
@@ -9,7 +14,7 @@
 
 @if (loading)
 {
-    <div class="d-flex justify-content-center align-items-center" style="height: 80vh;">
+    <div class="d-flex justify-content-center align-items-center" style="height: 100vh;">
         <div class="text-center">
             <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
                 <span class="visually-hidden">Loading...</span>
@@ -20,59 +25,65 @@
 }
 else if (error != null)
 {
-    <div class="alert alert-danger m-4">
-        <h4>Error</h4>
-        <p>@error</p>
-        <a href="models" class="btn btn-outline-primary">Back to Models</a>
+    <div class="d-flex justify-content-center align-items-center" style="height: 100vh;">
+        <div class="alert alert-danger m-4">
+            <h4>Error</h4>
+            <p>@error</p>
+            <a href="models" class="btn btn-outline-primary">Back to Models</a>
+        </div>
     </div>
 }
 else if (modelVersion != null)
 {
-    <div class="viewer-container" style="height: calc(100vh - 120px);">
-        <div class="viewer-header p-2 bg-light border-bottom d-flex justify-content-between align-items-center">
-            <div>
-                <strong>@model?.Name</strong>
-                <span class="text-muted ms-2">Version @modelVersion.VersionNumber</span>
-                <span class="badge @GetStatusBadgeClass(modelVersion.Status) ms-2">@GetStatusText(modelVersion.Status)</span>
-            </div>
-            <div>
+    <div class="viewer-container" style="height: 100vh; width: 100%; position: relative;">
+        @if (modelVersion.Status == ProcessingStatus._2 && wexbimUrl != null)
+        {
+            <OctopusViewer @ref="viewer"
+                           Id="mainViewer"
+                           Width="100%"
+                           Height="100%"
+                           OnViewerInitialized="OnViewerInitialized"
+                           OnModelLoaded="OnModelLoaded"
+                           OnError="OnViewerError">
+
+                @if (viewer != null)
+                {
+                    <ViewerToolbar Items="@_toolbarItems"
+                                   Position="ToolbarPosition.Bottom"
+                                   Alignment="ToolbarAlignment.Center" />
+                }
+            </OctopusViewer>
+
+            <div class="viewer-header-overlay">
+                <div class="model-info">
+                    <strong>@model?.Name</strong>
+                    <span class="text-muted ms-2">v@modelVersion.VersionNumber</span>
+                </div>
                 <a href="models?projectId=@model?.ProjectId" class="btn btn-sm btn-outline-secondary">
                     <i class="bi bi-arrow-left"></i> Back
                 </a>
             </div>
-        </div>
-        <div class="viewer-content" style="height: calc(100% - 50px);">
-            @if (modelVersion.Status == ProcessingStatus._2 && wexbimUrl != null)
-            {
-                <OctopusViewer @ref="viewer"
-                               Id="mainViewer"
-                               Width="100%"
-                               Height="100%"
-                               OnViewerInitialized="OnViewerInitialized"
-                               OnModelLoaded="OnModelLoaded"
-                               OnError="OnViewerError" />
-            }
-            else if (modelVersion.Status == ProcessingStatus._1 || modelVersion.Status == ProcessingStatus._0)
-            {
-                <div class="d-flex justify-content-center align-items-center h-100">
-                    <div class="text-center">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Processing...</span>
-                        </div>
-                        <p class="mt-3">Model is being processed. Please wait...</p>
+        }
+        else if (modelVersion.Status == ProcessingStatus._1 || modelVersion.Status == ProcessingStatus._0)
+        {
+            <div class="d-flex justify-content-center align-items-center h-100">
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Processing...</span>
                     </div>
+                    <p class="mt-3">Model is being processed. Please wait...</p>
                 </div>
-            }
-            else if (modelVersion.Status == ProcessingStatus._3)
-            {
-                <div class="d-flex justify-content-center align-items-center h-100">
-                    <div class="alert alert-danger">
-                        <h5>Processing Failed</h5>
-                        <p>@modelVersion.ErrorMessage</p>
-                    </div>
+            </div>
+        }
+        else if (modelVersion.Status == ProcessingStatus._3)
+        {
+            <div class="d-flex justify-content-center align-items-center h-100">
+                <div class="alert alert-danger">
+                    <h5>Processing Failed</h5>
+                    <p>@modelVersion.ErrorMessage</p>
                 </div>
-            }
-        </div>
+            </div>
+        }
     </div>
 }
 
@@ -86,6 +97,12 @@ else if (modelVersion != null)
     private string? wexbimUrl;
     private bool loading = true;
     private string? error;
+
+    // Toolbar and plugins
+    private List<ToolbarItemBase> _toolbarItems = new();
+    private SectionBoxPlugin? _sectionBoxPlugin;
+    private ClippingPlanePlugin? _clippingPlanePlugin;
+    private bool _interactivePluginsInitialized = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -180,18 +197,62 @@ else if (modelVersion != null)
 
     private async Task OnViewerInitialized(string viewerId)
     {
+        InitializeToolbar();
+
         if (viewer != null && wexbimUrl != null)
         {
             await viewer.LoadModelAsync(wexbimUrl, model?.Name ?? "Model");
         }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void InitializeToolbar()
+    {
+        if (viewer == null) return;
+
+        _toolbarItems = new List<ToolbarItemBase>
+        {
+            ViewerBuiltInButtons.CreatePerspectiveToggle(viewer, startWithPerspective: true),
+            ViewerBuiltInButtons.CreateZoomFitButton(viewer),
+            ViewerBuiltInButtons.CreateResetViewButton(viewer),
+            ViewerBuiltInButtons.CreateViewsDropdown(viewer),
+            ViewerBuiltInButtons.CreateNavigationButtons(viewer),
+            ViewerBuiltInButtons.CreateXRayToggle(viewer),
+            ViewerBuiltInButtons.CreateHideToggle(viewer),
+            ViewerBuiltInButtons.CreateIsolateToggle(viewer),
+            ViewerBuiltInButtons.CreateClearSelectionButton(viewer),
+            ViewerBuiltInButtons.CreateSectionBoxButtons(viewer, () => _sectionBoxPlugin, "Box", StateHasChanged),
+            ViewerBuiltInButtons.CreateClippingPlaneButtons(viewer, () => _clippingPlanePlugin, "Plane", StateHasChanged)
+        };
     }
 
     private async Task OnModelLoaded(bool success)
     {
         if (viewer != null && success)
         {
+            // Initialize interactive plugins after first model load (they need geometry)
+            if (!_interactivePluginsInitialized)
+            {
+                _sectionBoxPlugin = new SectionBoxPlugin
+                {
+                    IsStopped = true
+                };
+                await viewer.AddPluginAsync(_sectionBoxPlugin);
+
+                _clippingPlanePlugin = new ClippingPlanePlugin
+                {
+                    IsStopped = true
+                };
+                await viewer.AddPluginAsync(_clippingPlanePlugin);
+
+                _interactivePluginsInitialized = true;
+            }
+
             await viewer.ZoomFitAsync();
         }
+
+        await InvokeAsync(StateHasChanged);
     }
 
     private void OnViewerError(Octopus.Blazor.Interop.ViewerEventArgs args)
