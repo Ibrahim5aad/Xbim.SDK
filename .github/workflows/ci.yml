@@ -13,7 +13,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     permissions:
       contents: write
       packages: write
@@ -63,15 +63,17 @@ jobs:
     - name: Update version in csproj files
       if: steps.get_version.outputs.is_release == 'true'
       run: |
-        sed -i 's/<Version>.*<\/Version>/<Version>${{ steps.get_version.outputs.version }}<\/Version>/' src/Octopus.Blazor/Octopus.Blazor.csproj
-        sed -i 's/<Version>.*<\/Version>/<Version>${{ steps.get_version.outputs.version }}<\/Version>/' src/Octopus.Api.Client/Octopus.Api.Client.csproj
-      shell: bash
+        $version = "${{ steps.get_version.outputs.version }}"
+        foreach ($file in @("src/Octopus.Blazor/Octopus.Blazor.csproj", "src/Octopus.Api.Client/Octopus.Api.Client.csproj")) {
+          (Get-Content $file) -replace '<Version>.*</Version>', "<Version>$version</Version>" | Set-Content $file
+        }
+      shell: pwsh
 
     - name: Build
       run: dotnet build --configuration Release --no-restore
 
     - name: Run tests
-      run: dotnet test --configuration Release --no-build --verbosity normal || echo "No tests found"
+      run: dotnet test --configuration Release --no-build --verbosity normal
 
     - name: Pack NuGet packages
       if: steps.get_version.outputs.is_release == 'true'
