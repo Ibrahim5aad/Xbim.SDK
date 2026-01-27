@@ -5,11 +5,16 @@
 @using Octopus.Blazor.Interop
 @using Octopus.Blazor.Models
 @using Octopus.Blazor.Services
+@using Octopus.Blazor.Services.Abstractions
+@using Octopus.Blazor.Services.Server
+@using Octopus.Client
 @inject IModelsService ModelsService
 @inject ThemeService ThemeService
 @inject IProcessingService ProcessingService
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
+@inject IOctopusApiClient OctopusClient
+@inject IPropertyService PropertyService
 @implements IDisposable
 @implements IAsyncDisposable
 
@@ -122,6 +127,9 @@ else if (modelVersion != null)
     private bool _showPropertiesPanel = false;
     private bool _showHierarchyPanel = false;
 
+    // Property source for SQL Server integration
+    private PlatformPropertySource? _platformPropertySource;
+
     protected override async Task OnInitializedAsync()
     {
         ProcessingService.OnStatusChanged += OnProcessingStatusChanged;
@@ -218,6 +226,10 @@ else if (modelVersion != null)
     {
         InitializeToolbar();
 
+        // Create and register PlatformPropertySource for SQL Server property integration
+        _platformPropertySource = new PlatformPropertySource(OctopusClient, "Platform Properties");
+        PropertyService.RegisterSource(_platformPropertySource);
+
         if (viewer != null)
         {
             // Add NavigationCubePlugin for orientation
@@ -242,7 +254,13 @@ else if (modelVersion != null)
             // Load model if URL is ready
             if (wexbimUrl != null)
             {
-                await viewer.LoadModelAsync(wexbimUrl, model?.Name ?? "Model");
+                var loadedModel = await viewer.LoadModelAsync(wexbimUrl, model?.Name ?? "Model");
+
+                // Register model mapping for property lookups
+                if (loadedModel != null && VersionId.HasValue)
+                {
+                    _platformPropertySource.RegisterModelMapping(loadedModel.Id, VersionId.Value);
+                }
             }
         }
 
@@ -338,6 +356,14 @@ else if (modelVersion != null)
         if (VersionId.HasValue)
         {
             ProcessingService.StopWatching(VersionId.Value);
+        }
+
+        // Clean up property source
+        if (_platformPropertySource != null)
+        {
+            PropertyService.UnregisterSource(_platformPropertySource.Id);
+            _platformPropertySource.Dispose();
+            _platformPropertySource = null;
         }
     }
 
