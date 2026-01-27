@@ -32,6 +32,12 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
 
+    - name: Restore LibMan libraries
+      run: |
+        dotnet tool install -g Microsoft.Web.LibraryManager.Cli
+        libman restore --verbosity detailed
+      working-directory: src/Octopus.Blazor
+
     - name: Compile TypeScript
       run: npx tsc --project src/Octopus.Blazor/tsconfig.json
 
