@@ -46,7 +46,7 @@ public class ServiceCollectionExtensionsTests
 
         // Act & Assert
         Assert.Throws<ArgumentException>(() => services.AddOctopusBlazorServerConnected(""));
-        Assert.Throws<ArgumentException>(() => services.AddOctopusBlazorServerConnected(null!));
+        Assert.Throws<ArgumentException>(() => services.AddOctopusBlazorServerConnected((string)null!));
     }
 
     [Fact]

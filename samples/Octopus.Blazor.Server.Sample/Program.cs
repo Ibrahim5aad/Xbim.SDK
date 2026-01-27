@@ -15,21 +15,10 @@ builder.Services.AddRazorComponents()
 var loggerFactory = LoggerFactory.Create(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
 XbimServices.Current.ConfigureServices(s => s.AddXbimToolkit(c => c.AddLoggerFactory(loggerFactory)));
 
-// Add Octopus.Blazor server services with configuration
-// This includes standalone services + IFC processing capabilities
-builder.Services.AddOctopusBlazorServer(options =>
-{
-    options.InitialTheme = ViewerTheme.Dark;
-    options.LightAccentColor = "#0969da";
-    options.DarkAccentColor = "#1e7e34";
-    options.LightBackgroundColor = "#ffffff";
-    options.DarkBackgroundColor = "#404040";
-
-    // Configure standalone WexBIM sources from wwwroot and local files
-    options.StandaloneSources = new StandaloneSourceOptions()
-        .AddStaticAsset("models/FourWalls.wexbim", "Four Walls (WexBIM)")
-        .AddStaticAsset("models/SampleHouse.ifc", "Sample House (IFC)");
-});
+// Add Octopus.Blazor server services using configuration binding from appsettings.json.
+// This reads from the "Octopus:Standalone" section for theme and FileLoaderPanel settings.
+// See appsettings.json for the configuration structure.
+builder.Services.AddOctopusBlazorServer(builder.Configuration);
 
 // Add HttpClient for static asset loading
 builder.Services.AddHttpClient("StaticAssets", client =>

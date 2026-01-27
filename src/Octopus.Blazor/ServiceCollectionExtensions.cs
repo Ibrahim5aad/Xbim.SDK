@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Octopus.Blazor.Models;
@@ -130,6 +131,119 @@ public static class ServiceCollectionExtensions
         });
 
         return services;
+    }
+
+    /// <summary>
+    /// Adds Octopus.Blazor services for standalone viewer applications using configuration binding.
+    /// <para>
+    /// This method binds configuration from the "Octopus:Standalone" section in appsettings.json.
+    /// </para>
+    /// <para>
+    /// Example appsettings.json:
+    /// <code>
+    /// {
+    ///   "Octopus": {
+    ///     "Standalone": {
+    ///       "Theme": {
+    ///         "InitialTheme": "Dark",
+    ///         "LightAccentColor": "#0969da",
+    ///         "DarkAccentColor": "#1e7e34"
+    ///       },
+    ///       "FileLoaderPanel": {
+    ///         "AllowIfcFiles": true,
+    ///         "AutoCloseOnLoad": true,
+    ///         "DemoModels": [
+    ///           { "Name": "Sample House", "Path": "models/SampleHouse.wexbim" }
+    ///         ]
+    ///       },
+    ///       "Sources": {
+    ///         "StaticAssets": [
+    ///           { "RelativePath": "models/SampleHouse.wexbim", "Name": "Sample House" }
+    ///         ]
+    ///       }
+    ///     }
+    ///   }
+    /// }
+    /// </code>
+    /// </para>
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="configuration">The configuration root.</param>
+    /// <returns>The service collection for chaining.</returns>
+    public static IServiceCollection AddOctopusBlazorStandalone(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        var section = configuration.GetSection(OctopusStandaloneOptions.SectionName);
+        var standaloneOptions = new OctopusStandaloneOptions();
+        section.Bind(standaloneOptions);
+
+        // Store standalone options for retrieval
+        services.TryAddSingleton(standaloneOptions);
+
+        return services.AddOctopusBlazorStandalone(options =>
+        {
+            // Apply theme settings
+            options.InitialTheme = standaloneOptions.Theme.GetViewerTheme();
+            options.LightAccentColor = standaloneOptions.Theme.LightAccentColor;
+            options.DarkAccentColor = standaloneOptions.Theme.DarkAccentColor;
+            options.LightBackgroundColor = standaloneOptions.Theme.LightBackgroundColor;
+            options.DarkBackgroundColor = standaloneOptions.Theme.DarkBackgroundColor;
+
+            // Apply FileLoaderPanel settings
+            options.FileLoaderPanel = standaloneOptions.FileLoaderPanel;
+
+            // Apply sources
+            if (standaloneOptions.Sources.StaticAssets.Count > 0 ||
+                standaloneOptions.Sources.Urls.Count > 0 ||
+                standaloneOptions.Sources.LocalFiles.Count > 0)
+            {
+                options.StandaloneSources = standaloneOptions.Sources.ToStandaloneSourceOptions();
+            }
+        });
+    }
+
+    /// <summary>
+    /// Adds Octopus.Blazor services for Blazor Server applications using configuration binding.
+    /// <para>
+    /// This method binds configuration from the "Octopus:Standalone" section in appsettings.json,
+    /// and adds IFC processing capabilities for server-side scenarios.
+    /// </para>
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="configuration">The configuration root.</param>
+    /// <returns>The service collection for chaining.</returns>
+    public static IServiceCollection AddOctopusBlazorServer(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        var section = configuration.GetSection(OctopusStandaloneOptions.SectionName);
+        var standaloneOptions = new OctopusStandaloneOptions();
+        section.Bind(standaloneOptions);
+
+        // Store standalone options for retrieval
+        services.TryAddSingleton(standaloneOptions);
+
+        return services.AddOctopusBlazorServer(options =>
+        {
+            // Apply theme settings
+            options.InitialTheme = standaloneOptions.Theme.GetViewerTheme();
+            options.LightAccentColor = standaloneOptions.Theme.LightAccentColor;
+            options.DarkAccentColor = standaloneOptions.Theme.DarkAccentColor;
+            options.LightBackgroundColor = standaloneOptions.Theme.LightBackgroundColor;
+            options.DarkBackgroundColor = standaloneOptions.Theme.DarkBackgroundColor;
+
+            // Apply FileLoaderPanel settings
+            options.FileLoaderPanel = standaloneOptions.FileLoaderPanel;
+
+            // Apply sources
+            if (standaloneOptions.Sources.StaticAssets.Count > 0 ||
+                standaloneOptions.Sources.Urls.Count > 0 ||
+                standaloneOptions.Sources.LocalFiles.Count > 0)
+            {
+                options.StandaloneSources = standaloneOptions.Sources.ToStandaloneSourceOptions();
+            }
+        });
     }
 
     /// <summary>
@@ -367,5 +481,148 @@ public static class ServiceCollectionExtensions
         services.Replace(ServiceDescriptor.Singleton<IProcessingService, ProcessingService>());
 
         return services;
+    }
+
+    /// <summary>
+    /// Adds Octopus.Blazor services with server connectivity using configuration binding.
+    /// <para>
+    /// This method binds configuration from the "Octopus:Server" section in appsettings.json.
+    /// </para>
+    /// <para>
+    /// Example appsettings.json:
+    /// <code>
+    /// {
+    ///   "Octopus": {
+    ///     "Server": {
+    ///       "BaseUrl": "https://api.octopus.example.com",
+    ///       "RequireAuthentication": true,
+    ///       "TimeoutSeconds": 30
+    ///     }
+    ///   }
+    /// }
+    /// </code>
+    /// </para>
+    /// <para>
+    /// For authentication, provide a token factory via the <paramref name="configureClient"/> action,
+    /// or implement <see cref="IAuthTokenProvider"/> and register it in the service collection before calling this method.
+    /// </para>
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="configuration">The configuration root.</param>
+    /// <returns>The service collection for chaining.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when server configuration is missing or invalid.</exception>
+    public static IServiceCollection AddOctopusBlazorServerConnected(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        return services.AddOctopusBlazorServerConnected(configuration, _ => { }, _ => { });
+    }
+
+    /// <summary>
+    /// Adds Octopus.Blazor services with server connectivity using configuration binding and custom Blazor options.
+    /// <para>
+    /// This method binds server configuration from the "Octopus:Server" section and standalone configuration
+    /// from the "Octopus:Standalone" section in appsettings.json.
+    /// </para>
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="configuration">The configuration root.</param>
+    /// <param name="configureBlazor">An action to configure additional Blazor options.</param>
+    /// <returns>The service collection for chaining.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when server configuration is missing or invalid.</exception>
+    public static IServiceCollection AddOctopusBlazorServerConnected(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        Action<OctopusBlazorOptions> configureBlazor)
+    {
+        return services.AddOctopusBlazorServerConnected(configuration, configureBlazor, _ => { });
+    }
+
+    /// <summary>
+    /// Adds Octopus.Blazor services with server connectivity using configuration binding and full control.
+    /// <para>
+    /// This method binds server configuration from the "Octopus:Server" section and standalone configuration
+    /// from the "Octopus:Standalone" section in appsettings.json.
+    /// </para>
+    /// <para>
+    /// Example appsettings.json:
+    /// <code>
+    /// {
+    ///   "Octopus": {
+    ///     "Server": {
+    ///       "BaseUrl": "https://api.octopus.example.com",
+    ///       "RequireAuthentication": true,
+    ///       "TimeoutSeconds": 30
+    ///     },
+    ///     "Standalone": {
+    ///       "Theme": { "InitialTheme": "Dark" },
+    ///       "FileLoaderPanel": { "AllowIfcFiles": false }
+    ///     }
+    ///   }
+    /// }
+    /// </code>
+    /// </para>
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="configuration">The configuration root.</param>
+    /// <param name="configureBlazor">An action to configure additional Blazor options.</param>
+    /// <param name="configureClient">An action to configure the Octopus client options (e.g., authentication).</param>
+    /// <returns>The service collection for chaining.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when server configuration is missing or invalid.</exception>
+    public static IServiceCollection AddOctopusBlazorServerConnected(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        Action<OctopusBlazorOptions> configureBlazor,
+        Action<OctopusClientOptions> configureClient)
+    {
+        // Bind and validate server options
+        var serverSection = configuration.GetSection(OctopusServerOptions.SectionName);
+        var serverOptions = new OctopusServerOptions();
+        serverSection.Bind(serverOptions);
+
+        // Validate configuration at startup - fail fast with actionable message
+        serverOptions.Validate();
+
+        // Store server options for retrieval by components
+        services.TryAddSingleton(serverOptions);
+
+        // Bind standalone options for theme and FileLoaderPanel configuration
+        var standaloneSection = configuration.GetSection(OctopusStandaloneOptions.SectionName);
+        var standaloneOptions = new OctopusStandaloneOptions();
+        standaloneSection.Bind(standaloneOptions);
+        services.TryAddSingleton(standaloneOptions);
+
+        // Configure Blazor options from configuration + custom action
+        Action<OctopusBlazorOptions> combinedConfigure = options =>
+        {
+            // Apply theme settings from configuration
+            options.InitialTheme = standaloneOptions.Theme.GetViewerTheme();
+            options.LightAccentColor = standaloneOptions.Theme.LightAccentColor;
+            options.DarkAccentColor = standaloneOptions.Theme.DarkAccentColor;
+            options.LightBackgroundColor = standaloneOptions.Theme.LightBackgroundColor;
+            options.DarkBackgroundColor = standaloneOptions.Theme.DarkBackgroundColor;
+
+            // Apply FileLoaderPanel settings
+            options.FileLoaderPanel = standaloneOptions.FileLoaderPanel;
+
+            // Apply any custom configuration
+            configureBlazor(options);
+        };
+
+        // Configure client options from configuration + custom action
+        Action<OctopusClientOptions> combinedClientConfigure = options =>
+        {
+            options.BaseUrl = serverOptions.BaseUrl!;
+            // Note: TimeoutSeconds is stored in OctopusServerOptions for reference,
+            // but HttpClient timeout is configured by the host (AddOctopusClient handles defaults)
+
+            // Apply any custom configuration
+            configureClient(options);
+        };
+
+        return services.AddOctopusBlazorServerConnected(
+            serverOptions.BaseUrl!,
+            combinedConfigure,
+            combinedClientConfigure);
     }
 }

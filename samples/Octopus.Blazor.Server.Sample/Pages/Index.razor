@@ -1,5 +1,6 @@
 @page "/"
 @page "/octopus-viewer"
+@using Octopus.Blazor
 @using Octopus.Blazor.Components
 @using Octopus.Blazor.Components.BuiltInButtons
 @using Octopus.Blazor.Interop
@@ -12,6 +13,7 @@
 @inject ThemeService ThemeService
 @inject IfcModelService IfcModelService
 @inject PropertyService PropertyService
+@inject OctopusBlazorOptions BlazorOptions
 
 <PageTitle>Octopus Viewer</PageTitle>
 
@@ -27,6 +29,9 @@
 
         <FileLoaderPanel @bind-IsVisible="_showFileLoader"
                          DemoModels="@_demoModels"
+                         AllowIfcFiles="@BlazorOptions.FileLoaderPanel.AllowIfcFiles"
+                         AllowCustomHeaders="@BlazorOptions.FileLoaderPanel.AllowCustomHeaders"
+                         AutoCloseOnLoad="@BlazorOptions.FileLoaderPanel.AutoCloseOnLoad"
                          OnError="HandleLoaderError" />
 
         @if (_viewer != null)
@@ -68,24 +73,14 @@
     private ToolbarAlignment _toolbarAlignment = ToolbarAlignment.Center;
     private ToolbarButton? _themeButton;
     
-    private List<DemoModel> _demoModels = new()
-    {
-        new DemoModel
-        {
-            Name = "Four Walls",
-            Path = "models/FourWalls.wexbim",
-            Description = "A simple building model with four walls"
-        },
-        new DemoModel
-        {
-            Name = "Sample House",
-            Path = "models/SampleHouse.ifc",
-            Description = "A sample house model"
-        }
-    };
-    
+    // Demo models loaded from configuration (appsettings.json -> Octopus:Standalone:FileLoaderPanel:DemoModels)
+    private List<DemoModel>? _demoModels;
+
     protected override void OnInitialized()
     {
+        // Load demo models from configuration
+        _demoModels = BlazorOptions.FileLoaderPanel.ToDemoModelList();
+
         ThemeService.OnThemeChanged += ApplyTheme;
         base.OnInitialized();
     }
