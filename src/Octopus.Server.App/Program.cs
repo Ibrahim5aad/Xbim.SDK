@@ -270,6 +270,7 @@ app.MapUsageEndpoints();
 app.MapModelEndpoints();
 app.MapModelVersionEndpoints();
 app.MapPropertiesEndpoints();
+app.MapOAuthAppEndpoints();
 
 // Detailed health check endpoint with DB and storage provider status
 app.MapHealthChecks("/healthz", new HealthCheckOptions
