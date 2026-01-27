@@ -7,7 +7,6 @@ using Octopus.Blazor.Services.Abstractions;
 using Octopus.Blazor.Services.Abstractions.Server;
 using Octopus.Blazor.Services.Server;
 using Octopus.Blazor.Services.Server.Guards;
-using Octopus.Blazor.Services.WexBimSources;
 using Octopus.Client;
 
 namespace Octopus.Blazor;
@@ -22,7 +21,7 @@ public static class ServiceCollectionExtensions
     /// <para>
     /// This registration is suitable for applications that:
     /// <list type="bullet">
-    ///   <item>Load WexBIM files from local sources, static assets, or URLs</item>
+    ///   <item>Load WexBIM files via FileLoaderPanel (from URLs, static assets, or local files)</item>
     ///   <item>Do not require Octopus.Server connectivity</item>
     ///   <item>Do not need IFC file processing (use pre-converted WexBIM files)</item>
     /// </list>
@@ -32,7 +31,6 @@ public static class ServiceCollectionExtensions
     /// <list type="bullet">
     ///   <item><see cref="ThemeService"/> - Theme management (singleton)</item>
     ///   <item><see cref="IPropertyService"/> / <see cref="PropertyService"/> - Property aggregation (singleton)</item>
-    ///   <item><see cref="IWexBimSourceProvider"/> / <see cref="WexBimSourceProvider"/> - WexBIM source management (singleton)</item>
     ///   <item><see cref="IfcHierarchyService"/> - Hierarchy generation (singleton)</item>
     /// </list>
     /// </para>
@@ -49,7 +47,7 @@ public static class ServiceCollectionExtensions
     /// <para>
     /// This registration is suitable for applications that:
     /// <list type="bullet">
-    ///   <item>Load WexBIM files from local sources, static assets, or URLs</item>
+    ///   <item>Load WexBIM files via FileLoaderPanel (from URLs, static assets, or local files)</item>
     ///   <item>Do not require Octopus.Server connectivity</item>
     ///   <item>Do not need IFC file processing (use pre-converted WexBIM files)</item>
     /// </list>
@@ -65,7 +63,7 @@ public static class ServiceCollectionExtensions
         var options = new OctopusBlazorOptions();
         configure(options);
 
-        // Store options for later use during source registration
+        // Store options for later use
         services.TryAddSingleton(options);
 
         // Register ThemeService with configured options
@@ -79,19 +77,8 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<PropertyService>();
         services.TryAddSingleton<IPropertyService>(sp => sp.GetRequiredService<PropertyService>());
 
-        // Register WexBimSourceProvider as both interface and concrete type
-        services.TryAddSingleton<WexBimSourceProvider>();
-        services.TryAddSingleton<IWexBimSourceProvider>(sp => sp.GetRequiredService<WexBimSourceProvider>());
-
         // Register IfcHierarchyService
         services.TryAddSingleton<IfcHierarchyService>();
-
-        // Register configured sources if provided (URL and local file sources only - static assets need HttpClient)
-        if (options.StandaloneSources != null)
-        {
-            services.AddSingleton<IWexBimSourceInitializer>(sp =>
-                new StandaloneSourceInitializer(options.StandaloneSources));
-        }
 
         // Register the standalone hosting mode provider
         services.TryAddSingleton<IOctopusHostingModeProvider, StandaloneHostingModeProvider>();
@@ -105,33 +92,6 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<IModelsService, NotConfiguredModelsService>();
         services.TryAddSingleton<IUsageService, NotConfiguredUsageService>();
         services.TryAddSingleton<IProcessingService, NotConfiguredProcessingService>();
-
-        return services;
-    }
-
-    /// <summary>
-    /// Configures pre-registered standalone WexBIM sources using an HttpClient.
-    /// <para>
-    /// Call this after <see cref="AddOctopusBlazorStandalone(IServiceCollection, Action{OctopusBlazorOptions})"/>
-    /// to enable static asset sources that require HttpClient for loading.
-    /// </para>
-    /// </summary>
-    /// <param name="services">The service collection.</param>
-    /// <param name="httpClientFactory">Factory function to create HttpClient instances.</param>
-    /// <returns>The service collection for chaining.</returns>
-    public static IServiceCollection ConfigureStandaloneHttpClient(
-        this IServiceCollection services,
-        Func<IServiceProvider, HttpClient> httpClientFactory)
-    {
-        services.AddSingleton<IWexBimSourceInitializer>(sp =>
-        {
-            var options = sp.GetService<OctopusBlazorOptions>();
-            if (options?.StandaloneSources == null)
-            {
-                return new NoOpSourceInitializer();
-            }
-            return new HttpClientSourceInitializer(options.StandaloneSources, httpClientFactory(sp));
-        });
 
         return services;
     }
@@ -157,11 +117,6 @@ public static class ServiceCollectionExtensions
     ///         "AutoCloseOnLoad": true,
     ///         "DemoModels": [
     ///           { "Name": "Sample House", "Path": "models/SampleHouse.wexbim" }
-    ///         ]
-    ///       },
-    ///       "Sources": {
-    ///         "StaticAssets": [
-    ///           { "RelativePath": "models/SampleHouse.wexbim", "Name": "Sample House" }
     ///         ]
     ///       }
     ///     }
@@ -195,14 +150,6 @@ public static class ServiceCollectionExtensions
 
             // Apply FileLoaderPanel settings
             options.FileLoaderPanel = standaloneOptions.FileLoaderPanel;
-
-            // Apply sources
-            if (standaloneOptions.Sources.StaticAssets.Count > 0 ||
-                standaloneOptions.Sources.Urls.Count > 0 ||
-                standaloneOptions.Sources.LocalFiles.Count > 0)
-            {
-                options.StandaloneSources = standaloneOptions.Sources.ToStandaloneSourceOptions();
-            }
         });
     }
 
@@ -238,14 +185,6 @@ public static class ServiceCollectionExtensions
 
             // Apply FileLoaderPanel settings
             options.FileLoaderPanel = standaloneOptions.FileLoaderPanel;
-
-            // Apply sources
-            if (standaloneOptions.Sources.StaticAssets.Count > 0 ||
-                standaloneOptions.Sources.Urls.Count > 0 ||
-                standaloneOptions.Sources.LocalFiles.Count > 0)
-            {
-                options.StandaloneSources = standaloneOptions.Sources.ToStandaloneSourceOptions();
-            }
         });
     }
 
@@ -334,7 +273,7 @@ public static class ServiceCollectionExtensions
     /// <para>
     /// This registration includes:
     /// <list type="bullet">
-    ///   <item>All standalone services (themes, properties, WexBIM sources)</item>
+    ///   <item>All standalone services (themes, properties)</item>
     ///   <item>Server-backed services for workspaces, projects, files, models, usage, and processing</item>
     ///   <item>Octopus API client with optional authentication</item>
     /// </list>
@@ -364,7 +303,7 @@ public static class ServiceCollectionExtensions
     /// <para>
     /// This registration includes:
     /// <list type="bullet">
-    ///   <item>All standalone services (themes, properties, WexBIM sources)</item>
+    ///   <item>All standalone services (themes, properties)</item>
     ///   <item>Server-backed services for workspaces, projects, files, models, usage, and processing</item>
     ///   <item>Octopus API client with optional authentication</item>
     /// </list>
@@ -388,7 +327,7 @@ public static class ServiceCollectionExtensions
     /// <para>
     /// This registration includes:
     /// <list type="bullet">
-    ///   <item>All standalone services (themes, properties, WexBIM sources)</item>
+    ///   <item>All standalone services (themes, properties)</item>
     ///   <item>Server-backed services for workspaces, projects, files, models, usage, and processing</item>
     ///   <item>Octopus API client with token-based authentication</item>
     /// </list>
@@ -415,7 +354,7 @@ public static class ServiceCollectionExtensions
     /// <para>
     /// This registration includes:
     /// <list type="bullet">
-    ///   <item>All standalone services (themes, properties, WexBIM sources)</item>
+    ///   <item>All standalone services (themes, properties)</item>
     ///   <item>Server-backed services for workspaces, projects, files, models, usage, and processing</item>
     ///   <item>Octopus API client with token-based authentication</item>
     /// </list>
@@ -442,7 +381,7 @@ public static class ServiceCollectionExtensions
     /// <para>
     /// This registration includes:
     /// <list type="bullet">
-    ///   <item>All standalone services (themes, properties, WexBIM sources)</item>
+    ///   <item>All standalone services (themes, properties)</item>
     ///   <item>Server-backed services for workspaces, projects, files, models, usage, and processing</item>
     ///   <item>Octopus API client with configurable authentication</item>
     /// </list>

@@ -10,7 +10,7 @@ namespace Octopus.Blazor.Services.Abstractions;
 /// </para>
 /// </summary>
 /// <remarks>
-/// Use <see cref="IWexBimSource"/> for loading pre-converted WexBIM files in standalone scenarios.
+/// Use FileLoaderPanel for loading pre-converted WexBIM files in standalone scenarios.
 /// </remarks>
 public interface IIfcModelService : IDisposable
 {

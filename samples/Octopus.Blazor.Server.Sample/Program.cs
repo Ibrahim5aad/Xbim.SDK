@@ -1,7 +1,4 @@
 using Octopus.Blazor;
-using Octopus.Blazor.Services.Abstractions;
-using Octopus.Blazor.Services.WexBimSources;
-using Octopus.Blazor.Models;
 using Octopus.Blazor.Server.Sample;
 using Xbim.Common.Configuration;
 using Xbim.Ifc;
@@ -20,33 +17,7 @@ XbimServices.Current.ConfigureServices(s => s.AddXbimToolkit(c => c.AddLoggerFac
 // See appsettings.json for the configuration structure.
 builder.Services.AddOctopusBlazorServer(builder.Configuration);
 
-// Add HttpClient for static asset loading
-builder.Services.AddHttpClient("StaticAssets", client =>
-{
-    // Base address will be set at runtime
-});
-
 var app = builder.Build();
-
-// Initialize WexBIM sources after build
-var sourceProvider = app.Services.GetRequiredService<IWexBimSourceProvider>();
-var blazorOptions = app.Services.GetService<OctopusBlazorOptions>();
-
-// Register local file sources from wwwroot (server can access filesystem directly)
-var wwwrootPath = Path.Combine(builder.Environment.ContentRootPath, "wwwroot");
-if (blazorOptions?.StandaloneSources != null)
-{
-    foreach (var assetConfig in blazorOptions.StandaloneSources.StaticAssets)
-    {
-        // For Blazor Server, we can load directly from disk
-        var fullPath = Path.Combine(wwwrootPath, assetConfig.RelativePath.Replace('/', Path.DirectorySeparatorChar));
-        if (File.Exists(fullPath) && fullPath.EndsWith(".wexbim", StringComparison.OrdinalIgnoreCase))
-        {
-            var source = new LocalFileWexBimSource(fullPath, assetConfig.Name);
-            sourceProvider.RegisterSource(source);
-        }
-    }
-}
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

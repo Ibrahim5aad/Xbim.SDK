@@ -4,7 +4,6 @@ using Octopus.Blazor;
 using Octopus.Blazor.Sample;
 using Octopus.Blazor.Services;
 using Octopus.Blazor.Services.Abstractions;
-using Octopus.Blazor.Services.WexBimSources;
 using Octopus.Blazor.Models;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
@@ -24,30 +23,14 @@ builder.Services.AddOctopusBlazorStandalone(options =>
     options.LightBackgroundColor = "#ffffff";
     options.DarkBackgroundColor = "#404040";
 
-    // Configure standalone WexBIM sources from wwwroot
-    options.StandaloneSources = new StandaloneSourceOptions()
-        .AddStaticAsset("models/SampleHouse.wexbim", "Sample House")
-        .AddStaticAsset("models/FourWalls.wexbim", "Four Walls");
+    // Configure FileLoaderPanel with demo models from wwwroot
+    options.FileLoaderPanel
+        .AddDemoModel("Sample House", "models/SampleHouse.wexbim")
+        .AddDemoModel("Four Walls", "models/FourWalls.wexbim");
 });
 
 // Build the host first to access services
 var host = builder.Build();
-
-// Initialize WexBIM sources with HttpClient
-var sourceProvider = host.Services.GetRequiredService<IWexBimSourceProvider>();
-var options = host.Services.GetService<OctopusBlazorOptions>();
-if (options?.StandaloneSources != null)
-{
-    // Register static asset sources with HttpClient
-    foreach (var assetConfig in options.StandaloneSources.StaticAssets)
-    {
-        var source = new StaticAssetWexBimSource(
-            assetConfig.RelativePath,
-            httpClient,
-            assetConfig.Name);
-        sourceProvider.RegisterSource(source);
-    }
-}
 
 // Add a custom property source that simulates fetching from an API
 var propertyService = host.Services.GetRequiredService<IPropertyService>();

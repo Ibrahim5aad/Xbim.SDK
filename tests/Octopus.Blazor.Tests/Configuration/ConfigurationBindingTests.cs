@@ -90,35 +90,6 @@ public class ConfigurationBindingTests
     }
 
     [Fact]
-    public void AddOctopusBlazorStandalone_WithConfiguration_BindsSources()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Octopus:Standalone:Sources:StaticAssets:0:RelativePath"] = "models/sample.wexbim",
-                ["Octopus:Standalone:Sources:StaticAssets:0:Name"] = "Sample Model",
-                ["Octopus:Standalone:Sources:Urls:0:Url"] = "https://example.com/model.wexbim",
-                ["Octopus:Standalone:Sources:Urls:0:Name"] = "Remote Model"
-            })
-            .Build();
-
-        // Act
-        services.AddOctopusBlazorStandalone(configuration);
-        var provider = services.BuildServiceProvider();
-        var options = provider.GetService<OctopusBlazorOptions>();
-
-        // Assert
-        Assert.NotNull(options);
-        Assert.NotNull(options.StandaloneSources);
-        Assert.Single(options.StandaloneSources.StaticAssets);
-        Assert.Equal("models/sample.wexbim", options.StandaloneSources.StaticAssets[0].RelativePath);
-        Assert.Single(options.StandaloneSources.Urls);
-        Assert.Equal("https://example.com/model.wexbim", options.StandaloneSources.Urls[0].Url);
-    }
-
-    [Fact]
     public void AddOctopusBlazorServer_WithConfiguration_BindsAllOptions()
     {
         // Arrange
@@ -292,35 +263,4 @@ public class ConfigurationBindingTests
         Assert.Equal(ViewerTheme.Dark, new ThemeOptions { InitialTheme = null! }.GetViewerTheme());
     }
 
-    [Fact]
-    public void SourcesConfig_ToStandaloneSourceOptions_ConvertsCorrectly()
-    {
-        // Arrange
-        var config = new SourcesConfig
-        {
-            StaticAssets = new List<StaticAssetSourceConfig>
-            {
-                new() { RelativePath = "models/a.wexbim", Name = "Model A" }
-            },
-            Urls = new List<UrlSourceConfig>
-            {
-                new() { Url = "https://example.com/b.wexbim", Name = "Model B" }
-            },
-            LocalFiles = new List<LocalFileSourceConfig>
-            {
-                new() { FilePath = "/path/to/c.wexbim", Name = "Model C" }
-            }
-        };
-
-        // Act
-        var standaloneOptions = config.ToStandaloneSourceOptions();
-
-        // Assert
-        Assert.Single(standaloneOptions.StaticAssets);
-        Assert.Equal("models/a.wexbim", standaloneOptions.StaticAssets[0].RelativePath);
-        Assert.Single(standaloneOptions.Urls);
-        Assert.Equal("https://example.com/b.wexbim", standaloneOptions.Urls[0].Url);
-        Assert.Single(standaloneOptions.LocalFiles);
-        Assert.Equal("/path/to/c.wexbim", standaloneOptions.LocalFiles[0].FilePath);
-    }
 }

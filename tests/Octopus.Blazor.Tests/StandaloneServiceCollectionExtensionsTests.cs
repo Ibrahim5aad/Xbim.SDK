@@ -3,7 +3,6 @@ using Octopus.Blazor.Models;
 using Octopus.Blazor.Services;
 using Octopus.Blazor.Services.Abstractions;
 using Octopus.Blazor.Services.Server.Guards;
-using Octopus.Blazor.Services.WexBimSources;
 
 namespace Octopus.Blazor.Tests;
 
@@ -27,8 +26,6 @@ public class StandaloneServiceCollectionExtensionsTests
         Assert.Contains(services, d => d.ServiceType == typeof(ThemeService));
         Assert.Contains(services, d => d.ServiceType == typeof(IPropertyService));
         Assert.Contains(services, d => d.ServiceType == typeof(PropertyService));
-        Assert.Contains(services, d => d.ServiceType == typeof(IWexBimSourceProvider));
-        Assert.Contains(services, d => d.ServiceType == typeof(WexBimSourceProvider));
         Assert.Contains(services, d => d.ServiceType == typeof(IfcHierarchyService));
     }
 
@@ -47,9 +44,6 @@ public class StandaloneServiceCollectionExtensionsTests
 
         var propertyDescriptor = services.First(d => d.ServiceType == typeof(PropertyService));
         Assert.Equal(ServiceLifetime.Singleton, propertyDescriptor.Lifetime);
-
-        var sourceProviderDescriptor = services.First(d => d.ServiceType == typeof(WexBimSourceProvider));
-        Assert.Equal(ServiceLifetime.Singleton, sourceProviderDescriptor.Lifetime);
     }
 
     [Fact]
@@ -92,23 +86,6 @@ public class StandaloneServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddOctopusBlazorStandalone_WithStandaloneSources_ShouldRegisterInitializer()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-
-        // Act
-        services.AddOctopusBlazorStandalone(options =>
-        {
-            options.StandaloneSources = new StandaloneSourceOptions()
-                .AddStaticAsset("models/test.wexbim", "Test Model");
-        });
-
-        // Assert - Source initializer should be registered
-        Assert.Contains(services, d => d.ServiceType == typeof(IWexBimSourceInitializer));
-    }
-
-    [Fact]
     public void AddOctopusBlazorStandalone_ServicesCanBeResolved()
     {
         // Arrange
@@ -120,8 +97,6 @@ public class StandaloneServiceCollectionExtensionsTests
         Assert.NotNull(provider.GetRequiredService<ThemeService>());
         Assert.NotNull(provider.GetRequiredService<IPropertyService>());
         Assert.NotNull(provider.GetRequiredService<PropertyService>());
-        Assert.NotNull(provider.GetRequiredService<IWexBimSourceProvider>());
-        Assert.NotNull(provider.GetRequiredService<WexBimSourceProvider>());
         Assert.NotNull(provider.GetRequiredService<IfcHierarchyService>());
     }
 
@@ -137,12 +112,8 @@ public class StandaloneServiceCollectionExtensionsTests
         var propertyInterface = provider.GetRequiredService<IPropertyService>();
         var propertyConcrete = provider.GetRequiredService<PropertyService>();
 
-        var sourceInterface = provider.GetRequiredService<IWexBimSourceProvider>();
-        var sourceConcrete = provider.GetRequiredService<WexBimSourceProvider>();
-
         // Assert - Same instance should be returned
         Assert.Same(propertyInterface, propertyConcrete);
-        Assert.Same(sourceInterface, sourceConcrete);
     }
 
     [Fact]
@@ -225,7 +196,6 @@ public class StandaloneServiceCollectionExtensionsTests
         // Act & Assert - Services should be resolvable (backward compatibility)
         Assert.NotNull(provider.GetRequiredService<ThemeService>());
         Assert.NotNull(provider.GetRequiredService<IPropertyService>());
-        Assert.NotNull(provider.GetRequiredService<IWexBimSourceProvider>());
     }
 
     #endregion
@@ -244,7 +214,6 @@ public class StandaloneServiceCollectionExtensionsTests
         // Assert - Standalone services should be included
         Assert.Contains(services, d => d.ServiceType == typeof(ThemeService));
         Assert.Contains(services, d => d.ServiceType == typeof(IPropertyService));
-        Assert.Contains(services, d => d.ServiceType == typeof(IWexBimSourceProvider));
     }
 
     [Fact]
@@ -299,42 +268,6 @@ public class StandaloneServiceCollectionExtensionsTests
             provider.GetRequiredService<Services.Abstractions.Server.IWorkspacesService>());
         Assert.IsType<Services.Server.Guards.NotConfiguredProjectsService>(
             provider.GetRequiredService<Services.Abstractions.Server.IProjectsService>());
-    }
-
-    #endregion
-
-    #region ConfigureStandaloneHttpClient Tests
-
-    [Fact]
-    public void ConfigureStandaloneHttpClient_WithoutSources_ShouldRegisterNoOpInitializer()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-        services.AddOctopusBlazorStandalone(); // No sources configured
-
-        // Act
-        services.ConfigureStandaloneHttpClient(sp => new HttpClient());
-
-        // Assert - Initializer should be registered
-        Assert.Contains(services, d => d.ServiceType == typeof(IWexBimSourceInitializer));
-    }
-
-    [Fact]
-    public void ConfigureStandaloneHttpClient_WithSources_ShouldRegisterHttpClientInitializer()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-        services.AddOctopusBlazorStandalone(options =>
-        {
-            options.StandaloneSources = new StandaloneSourceOptions()
-                .AddStaticAsset("test.wexbim", "Test");
-        });
-
-        // Act
-        services.ConfigureStandaloneHttpClient(sp => new HttpClient());
-
-        // Assert - HttpClient initializer should be registered
-        Assert.Contains(services, d => d.ServiceType == typeof(IWexBimSourceInitializer));
     }
 
     #endregion

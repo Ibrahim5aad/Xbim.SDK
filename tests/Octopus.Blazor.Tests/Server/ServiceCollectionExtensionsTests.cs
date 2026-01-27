@@ -104,7 +104,6 @@ public class ServiceCollectionExtensionsTests
         // Assert - Standalone services should also be available
         Assert.Contains(services, d => d.ServiceType == typeof(Octopus.Blazor.Services.ThemeService));
         Assert.Contains(services, d => d.ServiceType == typeof(Octopus.Blazor.Services.Abstractions.IPropertyService));
-        Assert.Contains(services, d => d.ServiceType == typeof(Octopus.Blazor.Services.Abstractions.IWexBimSourceProvider));
     }
 
     [Fact]

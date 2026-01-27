@@ -443,9 +443,6 @@ public class NotConfiguredServicesTests
         var propertyService = provider.GetRequiredService<Octopus.Blazor.Services.Abstractions.IPropertyService>();
         Assert.NotNull(propertyService);
 
-        var sourceProvider = provider.GetRequiredService<Octopus.Blazor.Services.Abstractions.IWexBimSourceProvider>();
-        Assert.NotNull(sourceProvider);
-
         // Standalone services should be usable (not guards that throw)
         // ThemeService methods work
         themeService.SetTheme(Octopus.Blazor.Models.ViewerTheme.Dark);
