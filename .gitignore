@@ -89,8 +89,8 @@ desktop.ini
 ## Blazor-specific
 **/wwwroot/service-worker-assets.js
 
-## libman (Library Manager) cache
-**/wwwroot/lib/.libman/
+## libman (Library Manager) - restored on build
+**/wwwroot/lib/
 
 ## AI Agent files (Claude Code, etc.)
 .claude/

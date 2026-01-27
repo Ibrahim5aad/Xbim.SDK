@@ -1,1 +1,0 @@
-export declare const fshader = "precision mediump float;\n\nvarying vec4 vColor;\n\n\nvoid main(void) {\n gl_FragColor = vColor;\n}";
