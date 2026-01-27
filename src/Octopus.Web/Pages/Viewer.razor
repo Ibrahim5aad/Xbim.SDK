@@ -9,6 +9,7 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @implements IDisposable
+@implements IAsyncDisposable
 
 <PageTitle>Model Viewer</PageTitle>
 
@@ -51,6 +52,15 @@ else if (modelVersion != null)
                     <ViewerToolbar Items="@_toolbarItems"
                                    Position="ToolbarPosition.Bottom"
                                    Alignment="ToolbarAlignment.Center" />
+
+                    <ViewerSidebar Position="SidebarPosition.Left">
+                        <SidebarPanel Icon="bi-info-circle" Title="Properties" @bind-IsOpen="_showPropertiesPanel" Width="320">
+                            <PropertiesPanel ShowHeader="false" />
+                        </SidebarPanel>
+                        <SidebarPanel Icon="bi-diagram-3" Title="Hierarchy" @bind-IsOpen="_showHierarchyPanel" Width="300">
+                            <ModelHierarchyPanel ShowHeader="false" />
+                        </SidebarPanel>
+                    </ViewerSidebar>
                 }
             </OctopusViewer>
 
@@ -103,6 +113,10 @@ else if (modelVersion != null)
     private SectionBoxPlugin? _sectionBoxPlugin;
     private ClippingPlanePlugin? _clippingPlanePlugin;
     private bool _interactivePluginsInitialized = false;
+
+    // Sidebar panels
+    private bool _showPropertiesPanel = false;
+    private bool _showHierarchyPanel = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -285,6 +299,24 @@ else if (modelVersion != null)
         if (VersionId.HasValue)
         {
             ProcessingService.StopWatching(VersionId.Value);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Dispose();
+
+        // Revoke the blob URL to free memory
+        if (!string.IsNullOrEmpty(wexbimUrl))
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("URL.revokeObjectURL", wexbimUrl);
+            }
+            catch
+            {
+                // Ignore errors during disposal
+            }
         }
     }
 }
