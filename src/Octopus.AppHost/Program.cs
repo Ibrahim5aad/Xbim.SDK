@@ -1,8 +1,16 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
+// Add SQL Server database
+var sqlServer = builder.AddSqlServer("sql")
+    .WithLifetime(ContainerLifetime.Persistent);
+
+var database = sqlServer.AddDatabase("OctopusDb");
+
 // Add the Octopus API with external HTTP endpoints
 var server = builder.AddProject<Projects.Octopus_Server_App>("octopus-server")
-    .WithExternalHttpEndpoints();
+    .WithExternalHttpEndpoints()
+    .WithReference(database)
+    .WaitFor(database);
 
 // Add the Octopus Web app with reference to the server
 // The web app uses service discovery to connect to the server via "http://octopus-server"

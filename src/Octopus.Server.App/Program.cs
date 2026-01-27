@@ -16,12 +16,30 @@ var builder = WebApplication.CreateBuilder(args);
 // Add service defaults (OpenTelemetry, health checks, resilience)
 builder.AddServiceDefaults();
 
-// Add persistence (SQLite for development by default)
+// Add persistence based on configuration
+// Supported providers: "SqlServer" (default), "Sqlite"
 // Skip if in Testing environment - tests configure their own in-memory database
 if (!builder.Environment.EnvironmentName.Equals("Testing", StringComparison.OrdinalIgnoreCase))
 {
-    var connectionString = builder.Configuration.GetConnectionString("OctopusDb") ?? "Data Source=octopus.db";
-    builder.Services.AddOctopusSqlite(connectionString);
+    var dbProvider = builder.Configuration.GetValue<string>("Database:Provider") ?? "SqlServer";
+    var connectionString = builder.Configuration.GetConnectionString("OctopusDb");
+
+    if (dbProvider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase))
+    {
+        connectionString ??= "Data Source=octopus.db";
+        builder.Services.AddOctopusSqlite(connectionString);
+    }
+    else
+    {
+        // Default to SQL Server
+        if (string.IsNullOrEmpty(connectionString))
+        {
+            throw new InvalidOperationException(
+                "SQL Server connection string 'OctopusDb' is required. " +
+                "Set Database:Provider to 'Sqlite' for local development without SQL Server.");
+        }
+        builder.Services.AddOctopusSqlServer(connectionString);
+    }
 }
 
 // Configure storage provider based on configuration
