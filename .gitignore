@@ -104,4 +104,10 @@ nul
 ## SQLite database files
 *.db
 *.db-shm
-*.db-waloctopus-storage/
+*.db-wal
+
+## Local storage
+octopus-storage/
+
+## .NET local tools config
+.config/
