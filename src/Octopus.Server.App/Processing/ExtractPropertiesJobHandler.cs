@@ -127,6 +127,9 @@ public class ExtractPropertiesJobHandler : IJobHandler<ExtractPropertiesJobPaylo
                 var (elementCount, sqliteSize) = await ExtractPropertiesToSqliteAsync(
                     model, tempSqlitePath, payload.ModelVersionId, jobId, cancellationToken);
 
+                // Clear SQLite connection pool to release file lock (required on Windows)
+                SqliteConnection.ClearAllPools();
+
                 if (elementCount == 0)
                 {
                     _logger.LogWarning("No elements extracted from IFC model for ModelVersion {ModelVersionId}", payload.ModelVersionId);
@@ -188,6 +191,9 @@ public class ExtractPropertiesJobHandler : IJobHandler<ExtractPropertiesJobPaylo
                 {
                     await NotifyProgressAsync(jobId, payload.ModelVersionId, "Persisting", 90, "Persisting to database...", cancellationToken);
                     await PersistToOctopusDatabaseAsync(tempSqlitePath, payload.ModelVersionId, cancellationToken);
+
+                    // Clear SQLite connection pool to release file lock for cleanup
+                    SqliteConnection.ClearAllPools();
                 }
 
                 _logger.LogInformation(

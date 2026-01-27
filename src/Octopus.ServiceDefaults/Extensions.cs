@@ -28,8 +28,16 @@ public static class Extensions
 
         builder.Services.ConfigureHttpClientDefaults(http =>
         {
-            // Turn on resilience by default
-            http.AddStandardResilienceHandler();
+            // Turn on resilience by default with extended timeouts for file uploads
+            http.AddStandardResilienceHandler(options =>
+            {
+                // Increase attempt timeout for file uploads (default is 30 seconds)
+                options.AttemptTimeout.Timeout = TimeSpan.FromMinutes(5);
+                // Circuit breaker sampling duration must be at least 2x the attempt timeout
+                options.CircuitBreaker.SamplingDuration = TimeSpan.FromMinutes(10);
+                // Increase total request timeout for large file operations
+                options.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(10);
+            });
 
             // Turn on service discovery by default
             http.AddServiceDiscovery();
