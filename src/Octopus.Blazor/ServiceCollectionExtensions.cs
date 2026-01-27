@@ -93,6 +93,9 @@ public static class ServiceCollectionExtensions
                 new StandaloneSourceInitializer(options.StandaloneSources));
         }
 
+        // Register the standalone hosting mode provider
+        services.TryAddSingleton<IOctopusHostingModeProvider, StandaloneHostingModeProvider>();
+
         // Register guard implementations for server-only services.
         // These throw ServerServiceNotConfiguredException with actionable messages when used,
         // preventing ambiguous null reference errors and guiding users to proper configuration.
@@ -349,11 +352,11 @@ public static class ServiceCollectionExtensions
     /// <param name="baseUrl">The base URL of the Octopus API server.</param>
     /// <returns>The service collection for chaining.</returns>
     /// <exception cref="ArgumentException">Thrown if baseUrl is null or empty.</exception>
-    public static IServiceCollection AddOctopusBlazorServerConnected(
+    public static IServiceCollection AddOctopusBlazorPlatformConnected(
         this IServiceCollection services,
         string baseUrl)
     {
-        return services.AddOctopusBlazorServerConnected(baseUrl, _ => { });
+        return services.AddOctopusBlazorPlatformConnected(baseUrl, _ => { });
     }
 
     /// <summary>
@@ -372,12 +375,12 @@ public static class ServiceCollectionExtensions
     /// <param name="configureBlazor">An action to configure the <see cref="OctopusBlazorOptions"/>.</param>
     /// <returns>The service collection for chaining.</returns>
     /// <exception cref="ArgumentException">Thrown if baseUrl is null or empty.</exception>
-    public static IServiceCollection AddOctopusBlazorServerConnected(
+    public static IServiceCollection AddOctopusBlazorPlatformConnected(
         this IServiceCollection services,
         string baseUrl,
         Action<OctopusBlazorOptions> configureBlazor)
     {
-        return services.AddOctopusBlazorServerConnected(baseUrl, configureBlazor, _ => { });
+        return services.AddOctopusBlazorPlatformConnected(baseUrl, configureBlazor, _ => { });
     }
 
     /// <summary>
@@ -396,12 +399,12 @@ public static class ServiceCollectionExtensions
     /// <param name="tokenProvider">The token provider for authentication.</param>
     /// <returns>The service collection for chaining.</returns>
     /// <exception cref="ArgumentException">Thrown if baseUrl is null or empty.</exception>
-    public static IServiceCollection AddOctopusBlazorServerConnected(
+    public static IServiceCollection AddOctopusBlazorPlatformConnected(
         this IServiceCollection services,
         string baseUrl,
         IAuthTokenProvider tokenProvider)
     {
-        return services.AddOctopusBlazorServerConnected(baseUrl, _ => { }, options =>
+        return services.AddOctopusBlazorPlatformConnected(baseUrl, _ => { }, options =>
         {
             options.TokenProvider = tokenProvider;
         });
@@ -423,12 +426,12 @@ public static class ServiceCollectionExtensions
     /// <param name="tokenFactory">A function that provides authentication tokens.</param>
     /// <returns>The service collection for chaining.</returns>
     /// <exception cref="ArgumentException">Thrown if baseUrl is null or empty.</exception>
-    public static IServiceCollection AddOctopusBlazorServerConnected(
+    public static IServiceCollection AddOctopusBlazorPlatformConnected(
         this IServiceCollection services,
         string baseUrl,
         Func<Task<string?>> tokenFactory)
     {
-        return services.AddOctopusBlazorServerConnected(baseUrl, _ => { }, options =>
+        return services.AddOctopusBlazorPlatformConnected(baseUrl, _ => { }, options =>
         {
             options.TokenFactory = _ => tokenFactory();
         });
@@ -451,7 +454,7 @@ public static class ServiceCollectionExtensions
     /// <param name="configureClient">An action to configure the <see cref="OctopusClientOptions"/>.</param>
     /// <returns>The service collection for chaining.</returns>
     /// <exception cref="ArgumentException">Thrown if baseUrl is null or empty.</exception>
-    public static IServiceCollection AddOctopusBlazorServerConnected(
+    public static IServiceCollection AddOctopusBlazorPlatformConnected(
         this IServiceCollection services,
         string baseUrl,
         Action<OctopusBlazorOptions> configureBlazor,
@@ -469,6 +472,10 @@ public static class ServiceCollectionExtensions
             options.BaseUrl = baseUrl;
             configureClient(options);
         });
+
+        // Replace the hosting mode provider to indicate PlatformConnected mode.
+        // This enables components to detect the mode and adjust behavior accordingly.
+        services.Replace(ServiceDescriptor.Singleton<IOctopusHostingModeProvider, PlatformConnectedHostingModeProvider>());
 
         // Register server-backed services, replacing any guard implementations from standalone mode.
         // Using Replace ensures that the real implementations override the guards that throw
@@ -511,11 +518,11 @@ public static class ServiceCollectionExtensions
     /// <param name="configuration">The configuration root.</param>
     /// <returns>The service collection for chaining.</returns>
     /// <exception cref="InvalidOperationException">Thrown when server configuration is missing or invalid.</exception>
-    public static IServiceCollection AddOctopusBlazorServerConnected(
+    public static IServiceCollection AddOctopusBlazorPlatformConnected(
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        return services.AddOctopusBlazorServerConnected(configuration, _ => { }, _ => { });
+        return services.AddOctopusBlazorPlatformConnected(configuration, _ => { }, _ => { });
     }
 
     /// <summary>
@@ -530,12 +537,12 @@ public static class ServiceCollectionExtensions
     /// <param name="configureBlazor">An action to configure additional Blazor options.</param>
     /// <returns>The service collection for chaining.</returns>
     /// <exception cref="InvalidOperationException">Thrown when server configuration is missing or invalid.</exception>
-    public static IServiceCollection AddOctopusBlazorServerConnected(
+    public static IServiceCollection AddOctopusBlazorPlatformConnected(
         this IServiceCollection services,
         IConfiguration configuration,
         Action<OctopusBlazorOptions> configureBlazor)
     {
-        return services.AddOctopusBlazorServerConnected(configuration, configureBlazor, _ => { });
+        return services.AddOctopusBlazorPlatformConnected(configuration, configureBlazor, _ => { });
     }
 
     /// <summary>
@@ -569,7 +576,7 @@ public static class ServiceCollectionExtensions
     /// <param name="configureClient">An action to configure the Octopus client options (e.g., authentication).</param>
     /// <returns>The service collection for chaining.</returns>
     /// <exception cref="InvalidOperationException">Thrown when server configuration is missing or invalid.</exception>
-    public static IServiceCollection AddOctopusBlazorServerConnected(
+    public static IServiceCollection AddOctopusBlazorPlatformConnected(
         this IServiceCollection services,
         IConfiguration configuration,
         Action<OctopusBlazorOptions> configureBlazor,
@@ -620,7 +627,7 @@ public static class ServiceCollectionExtensions
             configureClient(options);
         };
 
-        return services.AddOctopusBlazorServerConnected(
+        return services.AddOctopusBlazorPlatformConnected(
             serverOptions.BaseUrl!,
             combinedConfigure,
             combinedClientConfigure);

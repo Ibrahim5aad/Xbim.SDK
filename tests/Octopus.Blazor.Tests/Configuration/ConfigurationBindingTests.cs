@@ -143,7 +143,7 @@ public class ConfigurationBindingTests
     }
 
     [Fact]
-    public void AddOctopusBlazorServerConnected_WithConfiguration_BindsServerOptions()
+    public void AddOctopusBlazorPlatformConnected_WithConfiguration_BindsServerOptions()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -157,7 +157,7 @@ public class ConfigurationBindingTests
             .Build();
 
         // Act
-        services.AddOctopusBlazorServerConnected(configuration);
+        services.AddOctopusBlazorPlatformConnected(configuration);
         var provider = services.BuildServiceProvider();
         var serverOptions = provider.GetService<OctopusServerOptions>();
 
@@ -169,7 +169,7 @@ public class ConfigurationBindingTests
     }
 
     [Fact]
-    public void AddOctopusBlazorServerConnected_WithConfiguration_RegistersServerServices()
+    public void AddOctopusBlazorPlatformConnected_WithConfiguration_RegistersServerServices()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -181,7 +181,7 @@ public class ConfigurationBindingTests
             .Build();
 
         // Act
-        services.AddOctopusBlazorServerConnected(configuration);
+        services.AddOctopusBlazorPlatformConnected(configuration);
 
         // Assert
         Assert.Contains(services, d => d.ServiceType == typeof(IWorkspacesService));
@@ -191,7 +191,7 @@ public class ConfigurationBindingTests
     }
 
     [Fact]
-    public void AddOctopusBlazorServerConnected_WithMissingBaseUrl_ThrowsInvalidOperationException()
+    public void AddOctopusBlazorPlatformConnected_WithMissingBaseUrl_ThrowsInvalidOperationException()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -205,13 +205,13 @@ public class ConfigurationBindingTests
 
         // Act & Assert
         var ex = Assert.Throws<InvalidOperationException>(() =>
-            services.AddOctopusBlazorServerConnected(configuration));
+            services.AddOctopusBlazorPlatformConnected(configuration));
         Assert.Contains("BaseUrl", ex.Message);
         Assert.Contains("required", ex.Message);
     }
 
     [Fact]
-    public void AddOctopusBlazorServerConnected_WithInvalidBaseUrl_ThrowsInvalidOperationException()
+    public void AddOctopusBlazorPlatformConnected_WithInvalidBaseUrl_ThrowsInvalidOperationException()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -224,7 +224,7 @@ public class ConfigurationBindingTests
 
         // Act & Assert
         var ex = Assert.Throws<InvalidOperationException>(() =>
-            services.AddOctopusBlazorServerConnected(configuration));
+            services.AddOctopusBlazorPlatformConnected(configuration));
         Assert.Contains("valid HTTP or HTTPS URL", ex.Message);
     }
 

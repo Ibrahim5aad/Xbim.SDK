@@ -6,14 +6,14 @@ namespace Octopus.Blazor.Services.Server;
 /// This exception indicates that a component or code is attempting to use a server-backed
 /// service (such as <c>IWorkspacesService</c>, <c>IProjectsService</c>, etc.) but the
 /// application was configured with <c>AddOctopusBlazorStandalone()</c> instead of
-/// <c>AddOctopusBlazorServerConnected()</c>.
+/// <c>AddOctopusBlazorPlatformConnected()</c>.
 /// </para>
 /// </summary>
 public class ServerServiceNotConfiguredException : InvalidOperationException
 {
     private const string DefaultMessageTemplate =
         "The service '{0}' requires Octopus.Server connectivity, but the application is configured in standalone mode. " +
-        "To use server-backed services, call 'AddOctopusBlazorServerConnected(baseUrl)' instead of 'AddOctopusBlazorStandalone()' " +
+        "To use server-backed services, call 'AddOctopusBlazorPlatformConnected(baseUrl)' instead of 'AddOctopusBlazorStandalone()' " +
         "during service registration.";
 
     /// <summary>

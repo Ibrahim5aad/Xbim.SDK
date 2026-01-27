@@ -31,7 +31,7 @@ public class NotConfiguredServicesTests
 
         // Assert
         Assert.Contains("IWorkspacesService", exception.Message);
-        Assert.Contains("AddOctopusBlazorServerConnected", exception.Message);
+        Assert.Contains("AddOctopusBlazorPlatformConnected", exception.Message);
         Assert.Contains("standalone mode", exception.Message);
     }
 
@@ -151,7 +151,7 @@ public class NotConfiguredServicesTests
 
         var ex2 = await Assert.ThrowsAsync<ServerServiceNotConfiguredException>(
             () => service.GetAsync(Guid.NewGuid()));
-        Assert.Contains("AddOctopusBlazorServerConnected", ex2.Message);
+        Assert.Contains("AddOctopusBlazorPlatformConnected", ex2.Message);
 
         await Assert.ThrowsAsync<ServerServiceNotConfiguredException>(
             () => service.ListAsync());
@@ -305,13 +305,13 @@ public class NotConfiguredServicesTests
     #region Server-Connected Overrides Guards Tests
 
     [Fact]
-    public void AddOctopusBlazorServerConnected_ShouldOverrideGuards()
+    public void AddOctopusBlazorPlatformConnected_ShouldOverrideGuards()
     {
         // Arrange
         var services = new ServiceCollection();
 
         // Act - Calling ServerConnected should replace guards with real implementations
-        services.AddOctopusBlazorServerConnected("https://localhost:5000");
+        services.AddOctopusBlazorPlatformConnected("https://localhost:5000");
 
         // Assert - Service descriptors should point to real implementations, not guards
         var workspacesDescriptor = services.First(d => d.ServiceType == typeof(IWorkspacesService));
@@ -330,14 +330,14 @@ public class NotConfiguredServicesTests
     }
 
     [Fact]
-    public void AddOctopusBlazorServerConnected_AfterStandalone_ShouldStillOverrideGuards()
+    public void AddOctopusBlazorPlatformConnected_AfterStandalone_ShouldStillOverrideGuards()
     {
         // Arrange
         var services = new ServiceCollection();
 
         // Act - First register standalone (registers guards), then server-connected (should override)
         services.AddOctopusBlazorStandalone();
-        services.AddOctopusBlazorServerConnected("https://localhost:5000");
+        services.AddOctopusBlazorPlatformConnected("https://localhost:5000");
 
         // Assert - Service descriptor should point to real implementation
         var workspacesDescriptor = services.First(d => d.ServiceType == typeof(IWorkspacesService));
@@ -345,13 +345,13 @@ public class NotConfiguredServicesTests
     }
 
     [Fact]
-    public void AddOctopusBlazorServerConnected_OverridesGuardsNotDuplicates()
+    public void AddOctopusBlazorPlatformConnected_OverridesGuardsNotDuplicates()
     {
         // Arrange
         var services = new ServiceCollection();
 
         // Act
-        services.AddOctopusBlazorServerConnected("https://localhost:5000");
+        services.AddOctopusBlazorPlatformConnected("https://localhost:5000");
 
         // Assert - Should be exactly one registration per service type (not guards + real)
         Assert.Single(services, d => d.ServiceType == typeof(IWorkspacesService));
@@ -360,6 +360,68 @@ public class NotConfiguredServicesTests
         Assert.Single(services, d => d.ServiceType == typeof(IModelsService));
         Assert.Single(services, d => d.ServiceType == typeof(IUsageService));
         Assert.Single(services, d => d.ServiceType == typeof(IProcessingService));
+    }
+
+    #endregion
+
+    #region StandaloneOnlyComponentException Tests
+
+    [Fact]
+    public void StandaloneOnlyComponentException_ShouldContainComponentName()
+    {
+        // Arrange & Act
+        var exception = new StandaloneOnlyComponentException("FileLoaderPanel");
+
+        // Assert
+        Assert.Equal("FileLoaderPanel", exception.ComponentName);
+    }
+
+    [Fact]
+    public void StandaloneOnlyComponentException_ShouldContainActionableMessage()
+    {
+        // Arrange & Act
+        var exception = new StandaloneOnlyComponentException("FileLoaderPanel");
+
+        // Assert
+        Assert.Contains("FileLoaderPanel", exception.Message);
+        Assert.Contains("Standalone-only", exception.Message);
+        Assert.Contains("Workspace", exception.Message);
+        Assert.Contains("Project", exception.Message);
+        Assert.Contains("Model", exception.Message);
+        Assert.Contains("Version", exception.Message);
+        Assert.Contains("navigation", exception.Message);
+    }
+
+    [Fact]
+    public void StandaloneOnlyComponentException_ShouldSuggestCorrectRegistration()
+    {
+        // Arrange & Act
+        var exception = new StandaloneOnlyComponentException("FileLoaderPanel");
+
+        // Assert
+        Assert.Contains("AddOctopusBlazorStandalone", exception.Message);
+        Assert.Contains("AddOctopusBlazorPlatformConnected", exception.Message);
+    }
+
+    [Fact]
+    public void StandaloneOnlyComponentException_WithCustomMessage_ShouldUseCustomMessage()
+    {
+        // Arrange & Act
+        var exception = new StandaloneOnlyComponentException("TestComponent", "Custom error message");
+
+        // Assert
+        Assert.Equal("TestComponent", exception.ComponentName);
+        Assert.Equal("Custom error message", exception.Message);
+    }
+
+    [Fact]
+    public void StandaloneOnlyComponentException_ShouldBeInvalidOperationException()
+    {
+        // Arrange & Act
+        var exception = new StandaloneOnlyComponentException("FileLoaderPanel");
+
+        // Assert
+        Assert.IsAssignableFrom<InvalidOperationException>(exception);
     }
 
     #endregion

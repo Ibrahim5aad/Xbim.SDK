@@ -7,6 +7,7 @@
 @namespace Octopus.Blazor.Components
 @inject NavigationManager NavigationManager
 @inject IServiceProvider ServiceProvider
+@inject IOctopusHostingModeProvider HostingModeProvider
 
 <div class="file-loader-panel @CssClass @(IsVisible ? "visible" : "")">
     <div class="file-loader-header">
@@ -265,7 +266,18 @@
     public string? ProcessingMessage { get; set; }
 
     private string _activeTab = "local";
-    
+
+    protected override void OnInitialized()
+    {
+        // FileLoaderPanel is only available in Standalone mode.
+        // In PlatformConnected mode, models are loaded through workspace/project navigation.
+        if (HostingModeProvider.IsPlatformConnected)
+        {
+            throw new StandaloneOnlyComponentException("FileLoaderPanel");
+        }
+        base.OnInitialized();
+    }
+
     protected override void OnParametersSet()
     {
         if (DemoModels != null && DemoModels.Any() && _activeTab == "local" && !IsLoading && string.IsNullOrEmpty(_selectedFileName))

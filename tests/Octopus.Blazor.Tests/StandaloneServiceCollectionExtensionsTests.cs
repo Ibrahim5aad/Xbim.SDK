@@ -339,6 +339,94 @@ public class StandaloneServiceCollectionExtensionsTests
 
     #endregion
 
+    #region Hosting Mode Provider Tests
+
+    [Fact]
+    public void AddOctopusBlazorStandalone_ShouldRegisterStandaloneHostingMode()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+
+        // Act
+        services.AddOctopusBlazorStandalone();
+        var provider = services.BuildServiceProvider();
+
+        // Assert
+        var hostingModeProvider = provider.GetRequiredService<IOctopusHostingModeProvider>();
+        Assert.Equal(OctopusHostingMode.Standalone, hostingModeProvider.HostingMode);
+        Assert.True(hostingModeProvider.IsStandalone);
+        Assert.False(hostingModeProvider.IsPlatformConnected);
+    }
+
+    [Fact]
+    public void AddOctopusBlazorServer_ShouldRegisterStandaloneHostingMode()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+
+        // Act
+        services.AddOctopusBlazorServer();
+        var provider = services.BuildServiceProvider();
+
+        // Assert - Server mode (IFC processing) is still standalone (not connected to Octopus.Server API)
+        var hostingModeProvider = provider.GetRequiredService<IOctopusHostingModeProvider>();
+        Assert.Equal(OctopusHostingMode.Standalone, hostingModeProvider.HostingMode);
+        Assert.True(hostingModeProvider.IsStandalone);
+        Assert.False(hostingModeProvider.IsPlatformConnected);
+    }
+
+    [Fact]
+    public void AddOctopusBlazorPlatformConnected_ShouldRegisterPlatformConnectedHostingMode()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+
+        // Act
+        services.AddOctopusBlazorPlatformConnected("https://localhost:5000");
+        var provider = services.BuildServiceProvider();
+
+        // Assert
+        var hostingModeProvider = provider.GetRequiredService<IOctopusHostingModeProvider>();
+        Assert.Equal(OctopusHostingMode.PlatformConnected, hostingModeProvider.HostingMode);
+        Assert.False(hostingModeProvider.IsStandalone);
+        Assert.True(hostingModeProvider.IsPlatformConnected);
+    }
+
+    [Fact]
+    public void AddOctopusBlazorPlatformConnected_AfterStandalone_ShouldOverrideToConnectedMode()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+
+        // Act - First standalone (registers Standalone mode), then ServerConnected (should override)
+        services.AddOctopusBlazorStandalone();
+        services.AddOctopusBlazorPlatformConnected("https://localhost:5000");
+        var provider = services.BuildServiceProvider();
+
+        // Assert
+        var hostingModeProvider = provider.GetRequiredService<IOctopusHostingModeProvider>();
+        Assert.Equal(OctopusHostingMode.PlatformConnected, hostingModeProvider.HostingMode);
+        Assert.True(hostingModeProvider.IsPlatformConnected);
+    }
+
+    [Fact]
+    public void HostingModeProvider_ShouldBeSingleton()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddOctopusBlazorStandalone();
+        var provider = services.BuildServiceProvider();
+
+        // Act
+        var instance1 = provider.GetRequiredService<IOctopusHostingModeProvider>();
+        var instance2 = provider.GetRequiredService<IOctopusHostingModeProvider>();
+
+        // Assert
+        Assert.Same(instance1, instance2);
+    }
+
+    #endregion
+
     #region Double Registration Idempotency Tests
 
     [Fact]

@@ -186,7 +186,7 @@ public class OctopusServerOptions
             throw new InvalidOperationException(
                 $"Octopus.Server configuration is invalid: 'BaseUrl' is required. " +
                 $"Configure the '{SectionName}:BaseUrl' setting in appsettings.json or call " +
-                $"AddOctopusBlazorServerConnected(baseUrl) with a valid URL.");
+                $"AddOctopusBlazorPlatformConnected(baseUrl) with a valid URL.");
         }
 
         if (!Uri.TryCreate(BaseUrl, UriKind.Absolute, out var uri) ||
