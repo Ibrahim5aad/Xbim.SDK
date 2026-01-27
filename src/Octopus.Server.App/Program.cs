@@ -178,6 +178,11 @@ builder.Services.AddSwaggerGen(options =>
 // Add rate limiting for upload endpoints
 builder.Services.AddUploadRateLimiting(builder.Configuration);
 
+// Add OAuth token service
+builder.Services.Configure<Octopus.Server.App.Auth.OAuthTokenOptions>(
+    builder.Configuration.GetSection("OAuth"));
+builder.Services.AddSingleton<Octopus.Server.App.Auth.IOAuthTokenService, Octopus.Server.App.Auth.OAuthTokenService>();
+
 var app = builder.Build();
 
 // Apply pending migrations on startup (development convenience)
@@ -271,6 +276,7 @@ app.MapModelEndpoints();
 app.MapModelVersionEndpoints();
 app.MapPropertiesEndpoints();
 app.MapOAuthAppEndpoints();
+app.MapOAuthEndpoints();
 
 // Detailed health check endpoint with DB and storage provider status
 app.MapHealthChecks("/healthz", new HealthCheckOptions
