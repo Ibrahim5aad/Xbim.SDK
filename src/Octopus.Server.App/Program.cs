@@ -16,9 +16,18 @@ using Xbim.Common.Configuration;
 var builder = WebApplication.CreateBuilder(args);
 
 var loggerFactory = LoggerFactory.Create(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
-XbimServices.Current.ConfigureServices(s => s.AddXbimToolkit(c => c
-    .AddLoggerFactory(loggerFactory)
-    .AddGeometryServices()));
+try
+{
+    XbimServices.Current.ConfigureServices(s => s.AddXbimToolkit(c => c
+        .AddLoggerFactory(loggerFactory)
+        .AddGeometryServices()));
+}
+catch (InvalidOperationException)
+{
+    // XbimServices is a global singleton that can only be configured once.
+    // In integration tests, WebApplicationFactory may create the host multiple times,
+    // so we ignore this exception when services are already configured.
+}
 
 // Add service defaults (OpenTelemetry, health checks, resilience)
 builder.AddServiceDefaults();
