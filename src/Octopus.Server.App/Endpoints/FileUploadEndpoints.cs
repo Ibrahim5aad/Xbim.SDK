@@ -1,6 +1,8 @@
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Octopus.Server.Abstractions.Auth;
 using Octopus.Server.Abstractions.Storage;
+using Octopus.Server.App.RateLimiting;
 using Octopus.Server.App.Storage;
 using Octopus.Server.Contracts;
 using Octopus.Server.Domain.Entities;
@@ -43,6 +45,8 @@ public static class FileUploadEndpoints
         uploadGroup.MapPost("", ReserveUpload)
             .WithName("ReserveUpload")
             .Produces<ReserveUploadResponse>(StatusCodes.Status201Created)
+            .Produces(StatusCodes.Status429TooManyRequests)
+            .RequireRateLimiting(RateLimitPolicies.UploadReserve)
             .WithOpenApi();
 
         uploadGroup.MapGet("/{sessionId:guid}", GetUploadSession)
@@ -54,12 +58,16 @@ public static class FileUploadEndpoints
             .WithName("UploadContent")
             .Accepts<IFormFile>("multipart/form-data")
             .Produces<UploadContentResponse>()
+            .Produces(StatusCodes.Status429TooManyRequests)
+            .RequireRateLimiting(RateLimitPolicies.UploadContent)
             .WithOpenApi()
             .DisableAntiforgery();
 
         uploadGroup.MapPost("/{sessionId:guid}/commit", CommitUpload)
             .WithName("CommitUpload")
             .Produces<CommitUploadResponse>()
+            .Produces(StatusCodes.Status429TooManyRequests)
+            .RequireRateLimiting(RateLimitPolicies.UploadCommit)
             .WithOpenApi();
 
         return app;

@@ -10,6 +10,7 @@ using Octopus.Server.App.Endpoints;
 using Octopus.Server.App.HealthChecks;
 using Octopus.Server.App.Middleware;
 using Octopus.Server.App.Processing;
+using Octopus.Server.App.RateLimiting;
 using Octopus.Server.Persistence.EfCore;
 using Octopus.Server.Persistence.EfCore.Extensions;
 using Octopus.Server.Processing;
@@ -174,6 +175,9 @@ builder.Services.AddSwaggerGen(options =>
     }
 });
 
+// Add rate limiting for upload endpoints
+builder.Services.AddUploadRateLimiting(builder.Configuration);
+
 var app = builder.Build();
 
 // Apply pending migrations on startup (development convenience)
@@ -245,6 +249,9 @@ app.UseSwaggerUI(options =>
 // Authentication and authorization middleware
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Rate limiting middleware
+app.UseRateLimiter();
 
 // User provisioning middleware (auto-creates User entity from authenticated principal)
 app.UseUserProvisioning();

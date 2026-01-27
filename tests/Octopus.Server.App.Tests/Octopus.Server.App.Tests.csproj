@@ -18,6 +18,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Octopus.Server.App\Octopus.Server.App.csproj" />
     <ProjectReference Include="..\..\src\Octopus.Server.Persistence.EfCore\Octopus.Server.Persistence.EfCore.csproj" />
   </ItemGroup>
