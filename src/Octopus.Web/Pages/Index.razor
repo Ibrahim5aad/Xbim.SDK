@@ -1,0 +1,91 @@
+@page "/"
+@inject IWorkspacesService WorkspacesService
+
+<PageTitle>Octopus - Home</PageTitle>
+
+<h1>Octopus Platform</h1>
+
+<p>Welcome to the Octopus BIM Platform. Navigate using the sidebar to manage your workspaces, projects, and models.</p>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-collection-fill"></i> Recent Workspaces
+            </div>
+            <div class="card-body">
+                @if (loadingWorkspaces)
+                {
+                    <p><em>Loading workspaces...</em></p>
+                }
+                else if (workspacesError != null)
+                {
+                    <div class="alert alert-warning">@workspacesError</div>
+                }
+                else if (workspaces == null || !workspaces.Any())
+                {
+                    <p>No workspaces yet. <a href="workspaces">Create your first workspace</a></p>
+                }
+                else
+                {
+                    <ul class="list-group list-group-flush">
+                        @foreach (var ws in workspaces.Take(5))
+                        {
+                            <li class="list-group-item">
+                                <a href="@($"projects?workspaceId={ws.Id}")">@ws.Name</a>
+                                <small class="text-muted d-block">@ws.Description</small>
+                            </li>
+                        }
+                    </ul>
+                    @if (workspaces.Count() > 5)
+                    {
+                        <a href="workspaces" class="btn btn-link">View all workspaces</a>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-lightning-fill"></i> Quick Actions
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="workspaces" class="btn btn-outline-primary">
+                        <i class="bi bi-plus-circle"></i> Create Workspace
+                    </a>
+                    <a href="projects" class="btn btn-outline-primary">
+                        <i class="bi bi-plus-circle"></i> Create Project
+                    </a>
+                    <a href="models" class="btn btn-outline-primary">
+                        <i class="bi bi-upload"></i> Upload Model
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private IEnumerable<WorkspaceDto>? workspaces;
+    private bool loadingWorkspaces = true;
+    private string? workspacesError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var result = await WorkspacesService.ListAsync(1, 10);
+            workspaces = result.Items;
+        }
+        catch (Exception ex)
+        {
+            workspacesError = $"Could not load workspaces: {ex.Message}";
+        }
+        finally
+        {
+            loadingWorkspaces = false;
+        }
+    }
+}
