@@ -1,10 +1,13 @@
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using Octopus.Server.Abstractions.Auth;
 using Octopus.Server.Abstractions.Processing;
 using Octopus.Server.Abstractions.Storage;
 using Octopus.Server.App.Auth;
 using Octopus.Server.App.Endpoints;
+using Octopus.Server.App.HealthChecks;
 using Octopus.Server.App.Middleware;
 using Octopus.Server.App.Processing;
 using Octopus.Server.Persistence.EfCore;
@@ -78,6 +81,21 @@ else
 // Register progress notifier (default no-op implementation)
 // Can be replaced with SignalR, webhooks, etc.
 builder.Services.AddSingleton<IProgressNotifier>(NullProgressNotifier.Instance);
+
+// Add health checks for DB and storage provider
+// Skip DB health check in Testing environment (tests configure their own in-memory database)
+if (!builder.Environment.EnvironmentName.Equals("Testing", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddHealthChecks()
+        .AddDbContextCheck<OctopusDbContext>(
+            name: "database",
+            failureStatus: HealthStatus.Unhealthy,
+            tags: ["db", "ready"])
+        .AddCheck<StorageProviderHealthCheck>(
+            name: "storage",
+            failureStatus: HealthStatus.Unhealthy,
+            tags: ["storage", "ready"]);
+}
 
 // Add processing queue and worker (in-memory Channel backend)
 // Skip in Testing environment - tests configure their own mocks
@@ -246,7 +264,11 @@ app.MapModelEndpoints();
 app.MapModelVersionEndpoints();
 app.MapPropertiesEndpoints();
 
-app.MapGet("/healthz", () => Results.Ok(new { status = "healthy" }))
+// Detailed health check endpoint with DB and storage provider status
+app.MapHealthChecks("/healthz", new HealthCheckOptions
+{
+    ResponseWriter = HealthCheckResponseWriter.WriteDetailedResponse
+})
     .WithName("HealthCheck")
     .WithOpenApi();
 

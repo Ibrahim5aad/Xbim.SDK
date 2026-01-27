@@ -472,6 +472,11 @@ public class IfcToWexBimJobHandlerTests : IDisposable
         {
             return Task.FromResult<string?>(null);
         }
+
+        public Task<StorageHealthResult> CheckHealthAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(StorageHealthResult.Healthy("InMemory storage is healthy"));
+        }
     }
 
     private class TestProgressNotifier : IProgressNotifier

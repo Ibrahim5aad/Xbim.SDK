@@ -214,4 +214,64 @@ public class LocalDiskStorageProvider : IStorageProvider
         _logger.LogDebug("Direct upload not supported for LocalDisk storage provider");
         return Task.FromResult<string?>(null);
     }
+
+    /// <inheritdoc />
+    public Task<StorageHealthResult> CheckHealthAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Ensure the base directory exists or can be created
+            EnsureBaseDirectoryExists();
+
+            // Verify the directory is accessible
+            if (!Directory.Exists(_basePath))
+            {
+                return Task.FromResult(StorageHealthResult.Unhealthy(
+                    $"Storage directory does not exist and could not be created: {_basePath}"));
+            }
+
+            // Check read/write access by creating a temporary health check file
+            var healthCheckFile = Path.Combine(_basePath, ".health-check");
+            try
+            {
+                var timestamp = DateTimeOffset.UtcNow.ToString("O");
+                System.IO.File.WriteAllText(healthCheckFile, timestamp);
+                var readBack = System.IO.File.ReadAllText(healthCheckFile);
+                System.IO.File.Delete(healthCheckFile);
+
+                if (readBack != timestamp)
+                {
+                    return Task.FromResult(StorageHealthResult.Unhealthy(
+                        "Storage directory read/write verification failed"));
+                }
+            }
+            catch (Exception ex)
+            {
+                return Task.FromResult(StorageHealthResult.Unhealthy(
+                    $"Storage directory access test failed: {ex.Message}"));
+            }
+
+            // Get some stats about the storage
+            var driveInfo = new DriveInfo(Path.GetPathRoot(_basePath) ?? _basePath);
+            var data = new Dictionary<string, object>
+            {
+                ["basePath"] = _basePath,
+                ["availableSpaceBytes"] = driveInfo.AvailableFreeSpace,
+                ["totalSpaceBytes"] = driveInfo.TotalSize
+            };
+
+            _logger.LogDebug("LocalDisk storage health check passed. Available space: {AvailableSpace} bytes",
+                driveInfo.AvailableFreeSpace);
+
+            return Task.FromResult(StorageHealthResult.Healthy(
+                "LocalDisk storage is accessible",
+                data));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "LocalDisk storage health check failed");
+            return Task.FromResult(StorageHealthResult.Unhealthy(
+                $"LocalDisk storage health check failed: {ex.Message}"));
+        }
+    }
 }

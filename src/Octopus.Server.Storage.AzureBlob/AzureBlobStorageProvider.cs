@@ -249,4 +249,51 @@ public class AzureBlobStorageProvider : IStorageProvider
 
         return sasUri.ToString();
     }
+
+    /// <inheritdoc />
+    public async Task<StorageHealthResult> CheckHealthAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Ensure container exists (or can be created)
+            await EnsureContainerExistsAsync(cancellationToken);
+
+            // Verify we can access the container by checking if it exists
+            var exists = await _containerClient.ExistsAsync(cancellationToken);
+            if (!exists.Value)
+            {
+                return StorageHealthResult.Unhealthy(
+                    $"Container '{_options.ContainerName}' does not exist and could not be created");
+            }
+
+            // Get container properties to verify full access
+            var properties = await _containerClient.GetPropertiesAsync(cancellationToken: cancellationToken);
+
+            var data = new Dictionary<string, object>
+            {
+                ["containerName"] = _options.ContainerName,
+                ["lastModified"] = properties.Value.LastModified.ToString("O"),
+                ["supportsDirectUpload"] = SupportsDirectUpload
+            };
+
+            _logger.LogDebug("AzureBlob storage health check passed for container {ContainerName}",
+                _options.ContainerName);
+
+            return StorageHealthResult.Healthy(
+                "Azure Blob storage is accessible",
+                data);
+        }
+        catch (RequestFailedException ex)
+        {
+            _logger.LogError(ex, "AzureBlob storage health check failed with status {Status}", ex.Status);
+            return StorageHealthResult.Unhealthy(
+                $"Azure Blob storage health check failed: {ex.Message} (Status: {ex.Status})");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "AzureBlob storage health check failed");
+            return StorageHealthResult.Unhealthy(
+                $"Azure Blob storage health check failed: {ex.Message}");
+        }
+    }
 }

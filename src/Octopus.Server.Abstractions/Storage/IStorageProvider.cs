@@ -70,4 +70,44 @@ public interface IStorageProvider
     /// Indicates whether this provider supports direct client uploads via SAS URLs.
     /// </summary>
     bool SupportsDirectUpload { get; }
+
+    /// <summary>
+    /// Checks if the storage provider is healthy and accessible.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True if the storage is healthy, false otherwise.</returns>
+    Task<StorageHealthResult> CheckHealthAsync(CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Result of a storage health check.
+/// </summary>
+public record StorageHealthResult
+{
+    /// <summary>
+    /// Whether the storage is healthy.
+    /// </summary>
+    public required bool IsHealthy { get; init; }
+
+    /// <summary>
+    /// Optional message describing the health status or any issues.
+    /// </summary>
+    public string? Message { get; init; }
+
+    /// <summary>
+    /// Optional additional data about the storage health.
+    /// </summary>
+    public IReadOnlyDictionary<string, object>? Data { get; init; }
+
+    /// <summary>
+    /// Creates a healthy result.
+    /// </summary>
+    public static StorageHealthResult Healthy(string? message = null, IReadOnlyDictionary<string, object>? data = null)
+        => new() { IsHealthy = true, Message = message, Data = data };
+
+    /// <summary>
+    /// Creates an unhealthy result.
+    /// </summary>
+    public static StorageHealthResult Unhealthy(string message, IReadOnlyDictionary<string, object>? data = null)
+        => new() { IsHealthy = false, Message = message, Data = data };
 }

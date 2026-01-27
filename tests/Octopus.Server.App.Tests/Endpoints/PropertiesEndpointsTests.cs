@@ -66,6 +66,11 @@ public class InMemoryStorageProviderForPropertiesTests : IStorageProvider
     {
         return Task.FromResult<string?>(null);
     }
+
+    public Task<StorageHealthResult> CheckHealthAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(StorageHealthResult.Healthy("InMemory storage is healthy"));
+    }
 }
 
 public class PropertiesEndpointsTests : IDisposable
