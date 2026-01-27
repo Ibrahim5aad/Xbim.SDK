@@ -135,6 +135,12 @@ public static class ModelVersionEndpoints
             new IfcToWexBimJobPayload { ModelVersionId = version.Id },
             cancellationToken);
 
+        // Enqueue the properties extraction job 
+        await processingQueue.EnqueueAsync(
+            ExtractPropertiesJobHandler.JobTypeName,
+            new ExtractPropertiesJobPayload { ModelVersionId = version.Id, PersistToDatabase = true },
+            cancellationToken);
+
         var dto = MapToDto(version);
         return Results.Created($"/api/v1/modelversions/{version.Id}", dto);
     }
