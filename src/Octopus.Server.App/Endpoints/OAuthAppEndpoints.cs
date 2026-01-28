@@ -9,6 +9,7 @@ using Octopus.Server.Persistence.EfCore;
 using DomainClientType = Octopus.Server.Domain.Enums.OAuthClientType;
 using DomainAuditEventType = Octopus.Server.Domain.Enums.OAuthAppAuditEventType;
 using WorkspaceRole = Octopus.Server.Domain.Enums.WorkspaceRole;
+using static Octopus.Server.Abstractions.Auth.OAuthScopes;
 
 namespace Octopus.Server.App.Endpoints;
 
@@ -81,6 +82,9 @@ public static class OAuthAppEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require oauth_apps:admin scope
+        authZ.RequireScope(OAuthAppsAdmin);
 
         // Require Admin role to create apps
         await authZ.RequireWorkspaceAccessAsync(workspaceId, WorkspaceRole.Admin, cancellationToken);
@@ -208,6 +212,9 @@ public static class OAuthAppEndpoints
             return Results.Unauthorized();
         }
 
+        // Require oauth_apps:read scope
+        authZ.RequireScope(OAuthAppsRead);
+
         // Require Admin role to list apps
         await authZ.RequireWorkspaceAccessAsync(workspaceId, WorkspaceRole.Admin, cancellationToken);
 
@@ -251,6 +258,9 @@ public static class OAuthAppEndpoints
             return Results.Unauthorized();
         }
 
+        // Require oauth_apps:read scope
+        authZ.RequireScope(OAuthAppsRead);
+
         // Require Admin role to view app details
         await authZ.RequireWorkspaceAccessAsync(workspaceId, WorkspaceRole.Admin, cancellationToken);
 
@@ -284,6 +294,9 @@ public static class OAuthAppEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require oauth_apps:write scope
+        authZ.RequireScope(OAuthAppsWrite);
 
         // Require Admin role to update apps
         await authZ.RequireWorkspaceAccessAsync(workspaceId, WorkspaceRole.Admin, cancellationToken);
@@ -408,6 +421,9 @@ public static class OAuthAppEndpoints
             return Results.Unauthorized();
         }
 
+        // Require oauth_apps:admin scope
+        authZ.RequireScope(OAuthAppsAdmin);
+
         // Require Admin role to delete apps
         await authZ.RequireWorkspaceAccessAsync(workspaceId, WorkspaceRole.Admin, cancellationToken);
 
@@ -462,6 +478,9 @@ public static class OAuthAppEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require oauth_apps:admin scope
+        authZ.RequireScope(OAuthAppsAdmin);
 
         // Require Admin role to rotate secrets
         await authZ.RequireWorkspaceAccessAsync(workspaceId, WorkspaceRole.Admin, cancellationToken);
@@ -531,6 +550,9 @@ public static class OAuthAppEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require oauth_apps:read scope
+        authZ.RequireScope(OAuthAppsRead);
 
         // Require Admin role to view audit logs
         await authZ.RequireWorkspaceAccessAsync(workspaceId, WorkspaceRole.Admin, cancellationToken);

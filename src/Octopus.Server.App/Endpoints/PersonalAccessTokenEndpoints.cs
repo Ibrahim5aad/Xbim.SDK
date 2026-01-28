@@ -8,6 +8,7 @@ using Octopus.Server.Persistence.EfCore;
 
 using DomainAuditEventType = Octopus.Server.Domain.Enums.PersonalAccessTokenAuditEventType;
 using WorkspaceRole = Octopus.Server.Domain.Enums.WorkspaceRole;
+using static Octopus.Server.Abstractions.Auth.OAuthScopes;
 
 namespace Octopus.Server.App.Endpoints;
 
@@ -92,6 +93,9 @@ public static class PersonalAccessTokenEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require pats:write scope
+        authZ.RequireScope(PatsWrite);
 
         // User must be at least a member of the workspace to create PATs
         await authZ.RequireWorkspaceAccessAsync(workspaceId, WorkspaceRole.Member, cancellationToken);
@@ -216,6 +220,9 @@ public static class PersonalAccessTokenEndpoints
             return Results.Unauthorized();
         }
 
+        // Require pats:read scope
+        authZ.RequireScope(PatsRead);
+
         // User must be at least a member of the workspace
         await authZ.RequireWorkspaceAccessAsync(workspaceId, WorkspaceRole.Member, cancellationToken);
 
@@ -265,6 +272,9 @@ public static class PersonalAccessTokenEndpoints
             return Results.Unauthorized();
         }
 
+        // Require pats:read scope
+        authZ.RequireScope(PatsRead);
+
         await authZ.RequireWorkspaceAccessAsync(workspaceId, WorkspaceRole.Member, cancellationToken);
 
         var pat = await dbContext.PersonalAccessTokens
@@ -297,6 +307,9 @@ public static class PersonalAccessTokenEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require pats:write scope
+        authZ.RequireScope(PatsWrite);
 
         await authZ.RequireWorkspaceAccessAsync(workspaceId, WorkspaceRole.Member, cancellationToken);
 
@@ -389,6 +402,9 @@ public static class PersonalAccessTokenEndpoints
             return Results.Unauthorized();
         }
 
+        // Require pats:write scope
+        authZ.RequireScope(PatsWrite);
+
         await authZ.RequireWorkspaceAccessAsync(workspaceId, WorkspaceRole.Member, cancellationToken);
 
         var pat = await dbContext.PersonalAccessTokens
@@ -445,6 +461,9 @@ public static class PersonalAccessTokenEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require pats:read scope
+        authZ.RequireScope(PatsRead);
 
         await authZ.RequireWorkspaceAccessAsync(workspaceId, WorkspaceRole.Member, cancellationToken);
 
@@ -515,6 +534,9 @@ public static class PersonalAccessTokenEndpoints
             return Results.Unauthorized();
         }
 
+        // Require pats:admin scope
+        authZ.RequireScope(PatsAdmin);
+
         // Require Admin role to view all PATs in workspace
         await authZ.RequireWorkspaceAccessAsync(workspaceId, WorkspaceRole.Admin, cancellationToken);
 
@@ -578,6 +600,9 @@ public static class PersonalAccessTokenEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require pats:admin scope
+        authZ.RequireScope(PatsAdmin);
 
         // Require Admin role to revoke other users' PATs
         await authZ.RequireWorkspaceAccessAsync(workspaceId, WorkspaceRole.Admin, cancellationToken);

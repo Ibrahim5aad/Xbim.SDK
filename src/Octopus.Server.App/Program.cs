@@ -210,7 +210,20 @@ app.UseExceptionHandler(exceptionHandlerApp =>
         // Get correlation ID from context (will be set by CorrelationIdMiddleware)
         var correlationId = context.GetCorrelationId();
 
-        if (exception is Octopus.Server.App.Auth.ForbiddenAccessException)
+        if (exception is Octopus.Server.App.Auth.InsufficientScopeException scopeException)
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsJsonAsync(new
+            {
+                error = "insufficient_scope",
+                message = exception.Message,
+                required_scopes = scopeException.RequiredScopes,
+                present_scopes = scopeException.PresentScopes,
+                correlationId
+            });
+        }
+        else if (exception is Octopus.Server.App.Auth.ForbiddenAccessException)
         {
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             context.Response.ContentType = "application/json";

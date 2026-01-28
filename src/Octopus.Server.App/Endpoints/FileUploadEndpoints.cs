@@ -14,6 +14,7 @@ using DomainUploadMode = Octopus.Server.Domain.Enums.UploadMode;
 using FileKind = Octopus.Server.Contracts.FileKind;
 using FileCategory = Octopus.Server.Contracts.FileCategory;
 using UploadMode = Octopus.Server.Contracts.UploadMode;
+using static Octopus.Server.Abstractions.Auth.OAuthScopes;
 
 namespace Octopus.Server.App.Endpoints;
 
@@ -77,6 +78,7 @@ public static class FileUploadEndpoints
     /// Reserves an upload session for a file. Returns session ID and upload constraints.
     /// If PreferDirectUpload is true and the storage provider supports it, returns a SAS URL for direct upload.
     /// Requires at least Editor role in the project.
+    /// Requires scope: files:write
     /// </summary>
     private static async Task<IResult> ReserveUpload(
         Guid projectId,
@@ -92,6 +94,9 @@ public static class FileUploadEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require files:write scope
+        authZ.RequireScope(FilesWrite);
 
         // Require at least Editor role to upload files
         await authZ.RequireProjectAccessAsync(projectId, ProjectRole.Editor, cancellationToken);
@@ -192,6 +197,7 @@ public static class FileUploadEndpoints
 
     /// <summary>
     /// Gets an upload session by ID.
+    /// Requires scope: files:read
     /// </summary>
     private static async Task<IResult> GetUploadSession(
         Guid projectId,
@@ -205,6 +211,9 @@ public static class FileUploadEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require files:read scope
+        authZ.RequireScope(FilesRead);
 
         // Require at least Viewer role to see upload sessions
         await authZ.RequireProjectAccessAsync(projectId, ProjectRole.Viewer, cancellationToken);
@@ -224,6 +233,7 @@ public static class FileUploadEndpoints
     /// <summary>
     /// Uploads content to an existing upload session via multipart form data.
     /// Requires at least Editor role in the project.
+    /// Requires scope: files:write
     /// </summary>
     private static async Task<IResult> UploadContent(
         Guid projectId,
@@ -240,6 +250,9 @@ public static class FileUploadEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require files:write scope
+        authZ.RequireScope(FilesWrite);
 
         // Require at least Editor role to upload files
         await authZ.RequireProjectAccessAsync(projectId, ProjectRole.Editor, cancellationToken);
@@ -348,6 +361,7 @@ public static class FileUploadEndpoints
     /// <summary>
     /// Commits an upload session, creating a File record and marking the session as committed.
     /// Requires at least Editor role in the project.
+    /// Requires scope: files:write
     /// </summary>
     private static async Task<IResult> CommitUpload(
         Guid projectId,
@@ -363,6 +377,9 @@ public static class FileUploadEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require files:write scope
+        authZ.RequireScope(FilesWrite);
 
         // Require at least Editor role to commit uploads
         await authZ.RequireProjectAccessAsync(projectId, ProjectRole.Editor, cancellationToken);

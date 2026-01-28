@@ -518,7 +518,8 @@ public class PersonalAccessTokenEndpointsTests : IDisposable
         var created = await CreatePatAsync(workspaceId, new CreatePersonalAccessTokenRequest
         {
             Name = "Auth Test PAT",
-            Scopes = new[] { "read", "write" }
+            // Use standard scopes for PAT operations
+            Scopes = new[] { "pats:read", "pats:write" }
         });
 
         // Create a new client that uses PAT auth
@@ -557,7 +558,8 @@ public class PersonalAccessTokenEndpointsTests : IDisposable
         var created = await CreatePatAsync(workspaceId, new CreatePersonalAccessTokenRequest
         {
             Name = "Revoke Auth Test",
-            Scopes = new[] { "read" }
+            // Use standard scopes
+            Scopes = new[] { "pats:read" }
         });
 
         // Revoke the token
@@ -581,7 +583,8 @@ public class PersonalAccessTokenEndpointsTests : IDisposable
         var created = await CreatePatAsync(workspaceId, new CreatePersonalAccessTokenRequest
         {
             Name = "LastUsed Test",
-            Scopes = new[] { "read" }
+            // Use standard scopes
+            Scopes = new[] { "pats:read" }
         });
 
         // Create a client with the PAT

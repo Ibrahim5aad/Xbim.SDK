@@ -4,6 +4,7 @@ using Octopus.Server.Contracts;
 using Octopus.Server.Domain.Entities;
 using Octopus.Server.Persistence.EfCore;
 using ProjectRole = Octopus.Server.Domain.Enums.ProjectRole;
+using static Octopus.Server.Abstractions.Auth.OAuthScopes;
 
 namespace Octopus.Server.App.Endpoints;
 
@@ -40,6 +41,7 @@ public static class PropertiesEndpoints
 
     /// <summary>
     /// Query properties with filtering and paging.
+    /// Requires scope: models:read
     /// </summary>
     private static async Task<IResult> QueryProperties(
         Guid modelVersionId,
@@ -59,6 +61,9 @@ public static class PropertiesEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require models:read scope (properties are part of model data)
+        authZ.RequireScope(ModelsRead);
 
         // Find the model version with its model to get the project ID
         var modelVersion = await dbContext.ModelVersions
@@ -144,6 +149,7 @@ public static class PropertiesEndpoints
 
     /// <summary>
     /// Get properties for a specific element.
+    /// Requires scope: models:read
     /// </summary>
     private static async Task<IResult> GetElementProperties(
         Guid modelVersionId,
@@ -157,6 +163,9 @@ public static class PropertiesEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require models:read scope (properties are part of model data)
+        authZ.RequireScope(ModelsRead);
 
         // Find the model version with its model to get the project ID
         var modelVersion = await dbContext.ModelVersions

@@ -11,6 +11,7 @@ using Octopus.Server.Processing;
 using ProjectRole = Octopus.Server.Domain.Enums.ProjectRole;
 using DomainProcessingStatus = Octopus.Server.Domain.Enums.ProcessingStatus;
 using ContractProcessingStatus = Octopus.Server.Contracts.ProcessingStatus;
+using static Octopus.Server.Abstractions.Auth.OAuthScopes;
 
 namespace Octopus.Server.App.Endpoints;
 
@@ -60,6 +61,7 @@ public static class ModelVersionEndpoints
     /// <summary>
     /// Creates a new version of a model from an existing IFC file.
     /// Requires Editor role or higher in the project.
+    /// Requires scopes: models:write, processing:write
     /// </summary>
     private static async Task<IResult> CreateModelVersion(
         Guid modelId,
@@ -74,6 +76,9 @@ public static class ModelVersionEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require models:write and processing:write scopes (creates version and triggers processing)
+        authZ.RequireAllScopes(ModelsWrite, ProcessingWrite);
 
         // Find the model to get its project ID
         var model = await dbContext.Models
@@ -147,6 +152,7 @@ public static class ModelVersionEndpoints
 
     /// <summary>
     /// Lists all versions of a model. Requires Viewer role or higher.
+    /// Requires scope: models:read
     /// </summary>
     private static async Task<IResult> ListModelVersions(
         Guid modelId,
@@ -161,6 +167,9 @@ public static class ModelVersionEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require models:read scope
+        authZ.RequireScope(ModelsRead);
 
         // Find the model to get its project ID
         var model = await dbContext.Models
@@ -209,6 +218,7 @@ public static class ModelVersionEndpoints
 
     /// <summary>
     /// Gets a model version by ID. Requires Viewer role or higher in the containing project.
+    /// Requires scope: models:read
     /// </summary>
     private static async Task<IResult> GetModelVersion(
         Guid versionId,
@@ -221,6 +231,9 @@ public static class ModelVersionEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require models:read scope
+        authZ.RequireScope(ModelsRead);
 
         // Find the version with its model to get the project ID
         var version = await dbContext.ModelVersions
@@ -248,6 +261,7 @@ public static class ModelVersionEndpoints
     /// Streams the WexBIM artifact for a model version.
     /// Requires Viewer role or higher in the containing project.
     /// Returns 404 if no WexBIM artifact exists.
+    /// Requires scope: models:read
     /// </summary>
     private static async Task<IResult> GetModelVersionWexBim(
         Guid versionId,
@@ -261,6 +275,9 @@ public static class ModelVersionEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require models:read scope
+        authZ.RequireScope(ModelsRead);
 
         // Find the version with its model and WexBIM file
         var version = await dbContext.ModelVersions

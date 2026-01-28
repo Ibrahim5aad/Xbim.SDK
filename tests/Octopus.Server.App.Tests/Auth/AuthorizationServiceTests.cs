@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 using Octopus.Server.Abstractions.Auth;
@@ -12,6 +13,7 @@ public class AuthorizationServiceTests : IDisposable
 {
     private readonly OctopusDbContext _dbContext;
     private readonly IUserContext _userContext;
+    private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly AuthorizationService _sut;
 
     private readonly Guid _userId = Guid.NewGuid();
@@ -30,7 +32,10 @@ public class AuthorizationServiceTests : IDisposable
         _userContext.IsAuthenticated.Returns(true);
         _userContext.UserId.Returns(_userId);
 
-        _sut = new AuthorizationService(_userContext, _dbContext);
+        _httpContextAccessor = Substitute.For<IHttpContextAccessor>();
+        _httpContextAccessor.HttpContext.Returns((HttpContext?)null);
+
+        _sut = new AuthorizationService(_userContext, _dbContext, _httpContextAccessor);
 
         // Seed base data
         SeedTestData();

@@ -7,6 +7,7 @@ using Octopus.Server.Persistence.EfCore;
 using ProjectRole = Octopus.Server.Domain.Enums.ProjectRole;
 using FileKind = Octopus.Server.Contracts.FileKind;
 using FileCategory = Octopus.Server.Contracts.FileCategory;
+using static Octopus.Server.Abstractions.Auth.OAuthScopes;
 
 namespace Octopus.Server.App.Endpoints;
 
@@ -56,6 +57,7 @@ public static class FileEndpoints
     /// <summary>
     /// Gets a file by its ID.
     /// Requires at least Viewer role in the project that contains the file.
+    /// Requires scope: files:read
     /// </summary>
     private static async Task<IResult> GetFile(
         Guid fileId,
@@ -68,6 +70,9 @@ public static class FileEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require files:read scope
+        authZ.RequireScope(FilesRead);
 
         // Find the file
         var file = await dbContext.Files
@@ -110,6 +115,7 @@ public static class FileEndpoints
     /// Downloads the content of a file by its ID.
     /// Requires at least Viewer role in the project that contains the file.
     /// Streams the file content directly from storage.
+    /// Requires scope: files:read
     /// </summary>
     private static async Task<IResult> GetFileContent(
         Guid fileId,
@@ -123,6 +129,9 @@ public static class FileEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require files:read scope
+        authZ.RequireScope(FilesRead);
 
         // Find the file
         var file = await dbContext.Files
@@ -177,6 +186,7 @@ public static class FileEndpoints
     /// Soft deletes a file by its ID.
     /// Requires at least Editor role in the project that contains the file.
     /// Sets IsDeleted to true and records the deletion timestamp.
+    /// Requires scope: files:write
     /// </summary>
     private static async Task<IResult> DeleteFile(
         Guid fileId,
@@ -189,6 +199,9 @@ public static class FileEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require files:write scope
+        authZ.RequireScope(FilesWrite);
 
         // Find the file
         var file = await dbContext.Files
@@ -241,6 +254,7 @@ public static class FileEndpoints
     /// <summary>
     /// Lists files in a project with optional filtering by kind and category.
     /// Requires at least Viewer role in the project.
+    /// Requires scope: files:read
     /// </summary>
     private static async Task<IResult> ListFiles(
         Guid projectId,
@@ -257,6 +271,9 @@ public static class FileEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require files:read scope
+        authZ.RequireScope(FilesRead);
 
         // Require at least Viewer role to list files
         await authZ.RequireProjectAccessAsync(projectId, ProjectRole.Viewer, cancellationToken);

@@ -5,6 +5,7 @@ using Octopus.Server.Persistence.EfCore;
 
 using WorkspaceRole = Octopus.Server.Domain.Enums.WorkspaceRole;
 using ProjectRole = Octopus.Server.Domain.Enums.ProjectRole;
+using static Octopus.Server.Abstractions.Auth.OAuthScopes;
 
 namespace Octopus.Server.App.Endpoints;
 
@@ -39,6 +40,7 @@ public static class UsageEndpoints
     /// Gets storage usage statistics for a workspace.
     /// Sums SizeBytes for all non-deleted files across all projects in the workspace.
     /// Requires at least Guest role in the workspace.
+    /// Requires scope: workspaces:read
     /// </summary>
     private static async Task<IResult> GetWorkspaceUsage(
         Guid workspaceId,
@@ -51,6 +53,9 @@ public static class UsageEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require workspaces:read scope
+        authZ.RequireScope(WorkspacesRead);
 
         // Check workspace access - any membership role is sufficient to view usage
         var role = await authZ.GetWorkspaceRoleAsync(workspaceId, cancellationToken);
@@ -102,6 +107,7 @@ public static class UsageEndpoints
     /// Gets storage usage statistics for a project.
     /// Sums SizeBytes for all non-deleted files in the project.
     /// Requires at least Viewer role in the project.
+    /// Requires scope: projects:read
     /// </summary>
     private static async Task<IResult> GetProjectUsage(
         Guid projectId,
@@ -114,6 +120,9 @@ public static class UsageEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require projects:read scope
+        authZ.RequireScope(ProjectsRead);
 
         // Check project access - Viewer role is sufficient to view usage
         if (!await authZ.CanAccessProjectAsync(projectId, ProjectRole.Viewer, cancellationToken))

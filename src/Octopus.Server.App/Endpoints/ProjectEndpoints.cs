@@ -6,6 +6,7 @@ using Octopus.Server.Persistence.EfCore;
 
 using WorkspaceRole = Octopus.Server.Domain.Enums.WorkspaceRole;
 using ProjectRole = Octopus.Server.Domain.Enums.ProjectRole;
+using static Octopus.Server.Abstractions.Auth.OAuthScopes;
 
 namespace Octopus.Server.App.Endpoints;
 
@@ -54,6 +55,7 @@ public static class ProjectEndpoints
 
     /// <summary>
     /// Creates a new project in a workspace. Requires Member role or higher in the workspace.
+    /// Requires scope: projects:write
     /// </summary>
     private static async Task<IResult> CreateProject(
         Guid workspaceId,
@@ -67,6 +69,9 @@ public static class ProjectEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require projects:write scope
+        authZ.RequireScope(ProjectsWrite);
 
         // Require at least Member role to create projects in a workspace
         await authZ.RequireWorkspaceAccessAsync(workspaceId, WorkspaceRole.Member, cancellationToken);
@@ -103,6 +108,7 @@ public static class ProjectEndpoints
 
     /// <summary>
     /// Lists all projects in a workspace that the user has access to.
+    /// Requires scope: projects:read
     /// </summary>
     private static async Task<IResult> ListProjects(
         Guid workspaceId,
@@ -117,6 +123,9 @@ public static class ProjectEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require projects:read scope
+        authZ.RequireScope(ProjectsRead);
 
         // Check workspace access first (any role is sufficient to list projects)
         var workspaceRole = await authZ.GetWorkspaceRoleAsync(workspaceId, cancellationToken);
@@ -181,6 +190,7 @@ public static class ProjectEndpoints
 
     /// <summary>
     /// Gets a project by ID. Requires any project access.
+    /// Requires scope: projects:read
     /// </summary>
     private static async Task<IResult> GetProject(
         Guid projectId,
@@ -193,6 +203,9 @@ public static class ProjectEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require projects:read scope
+        authZ.RequireScope(ProjectsRead);
 
         // Check access (any project role is sufficient to view)
         var role = await authZ.GetProjectRoleAsync(projectId, cancellationToken);
@@ -215,6 +228,7 @@ public static class ProjectEndpoints
 
     /// <summary>
     /// Updates a project. Requires ProjectAdmin role or higher.
+    /// Requires scope: projects:write
     /// </summary>
     private static async Task<IResult> UpdateProject(
         Guid projectId,
@@ -228,6 +242,9 @@ public static class ProjectEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require projects:write scope
+        authZ.RequireScope(ProjectsWrite);
 
         // Require ProjectAdmin role to update project
         await authZ.RequireProjectAccessAsync(projectId, ProjectRole.ProjectAdmin, cancellationToken);

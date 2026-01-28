@@ -5,6 +5,7 @@ using Octopus.Server.Domain.Entities;
 using Octopus.Server.Persistence.EfCore;
 
 using WorkspaceRole = Octopus.Server.Domain.Enums.WorkspaceRole;
+using static Octopus.Server.Abstractions.Auth.OAuthScopes;
 
 namespace Octopus.Server.App.Endpoints;
 
@@ -47,10 +48,12 @@ public static class WorkspaceEndpoints
 
     /// <summary>
     /// Creates a new workspace and makes the current user the Owner.
+    /// Requires scope: workspaces:write
     /// </summary>
     private static async Task<IResult> CreateWorkspace(
         CreateWorkspaceRequest request,
         IUserContext userContext,
+        IAuthorizationService authZ,
         OctopusDbContext dbContext,
         CancellationToken cancellationToken)
     {
@@ -58,6 +61,9 @@ public static class WorkspaceEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require workspaces:write scope
+        authZ.RequireScope(WorkspacesWrite);
 
         if (string.IsNullOrWhiteSpace(request.Name))
         {
@@ -95,9 +101,11 @@ public static class WorkspaceEndpoints
 
     /// <summary>
     /// Lists all workspaces the current user is a member of.
+    /// Requires scope: workspaces:read
     /// </summary>
     private static async Task<IResult> ListWorkspaces(
         IUserContext userContext,
+        IAuthorizationService authZ,
         OctopusDbContext dbContext,
         int page = 1,
         int pageSize = 20,
@@ -107,6 +115,9 @@ public static class WorkspaceEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require workspaces:read scope
+        authZ.RequireScope(WorkspacesRead);
 
         // Validate pagination parameters
         page = Math.Max(1, page);
@@ -144,6 +155,7 @@ public static class WorkspaceEndpoints
 
     /// <summary>
     /// Gets a workspace by ID. Requires the user to be a member.
+    /// Requires scope: workspaces:read
     /// </summary>
     private static async Task<IResult> GetWorkspace(
         Guid workspaceId,
@@ -156,6 +168,9 @@ public static class WorkspaceEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require workspaces:read scope
+        authZ.RequireScope(WorkspacesRead);
 
         // Check access (any membership role is sufficient to view)
         var role = await authZ.GetWorkspaceRoleAsync(workspaceId, cancellationToken);
@@ -178,6 +193,7 @@ public static class WorkspaceEndpoints
 
     /// <summary>
     /// Updates a workspace. Requires Admin role or higher.
+    /// Requires scope: workspaces:write
     /// </summary>
     private static async Task<IResult> UpdateWorkspace(
         Guid workspaceId,
@@ -191,6 +207,9 @@ public static class WorkspaceEndpoints
         {
             return Results.Unauthorized();
         }
+
+        // Require workspaces:write scope
+        authZ.RequireScope(WorkspacesWrite);
 
         // Require Admin role to update workspace
         await authZ.RequireWorkspaceAccessAsync(workspaceId, WorkspaceRole.Admin, cancellationToken);

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Octopus.Server.Abstractions.Auth;
 using Octopus.Server.Domain.Enums;
@@ -7,18 +8,137 @@ namespace Octopus.Server.App.Auth;
 
 /// <summary>
 /// Implementation of the authorization service that checks user permissions
-/// against workspace and project memberships in the database.
+/// against workspace and project memberships in the database and OAuth scopes.
 /// </summary>
 public class AuthorizationService : IAuthorizationService
 {
     private readonly IUserContext _userContext;
     private readonly OctopusDbContext _dbContext;
+    private readonly IHttpContextAccessor _httpContextAccessor;
+    private HashSet<string>? _cachedScopes;
 
-    public AuthorizationService(IUserContext userContext, OctopusDbContext dbContext)
+    public AuthorizationService(
+        IUserContext userContext,
+        OctopusDbContext dbContext,
+        IHttpContextAccessor httpContextAccessor)
     {
         _userContext = userContext;
         _dbContext = dbContext;
+        _httpContextAccessor = httpContextAccessor;
     }
+
+    #region Scope-based Authorization
+
+    /// <inheritdoc />
+    public IReadOnlySet<string> GetScopes()
+    {
+        if (_cachedScopes != null)
+        {
+            return _cachedScopes;
+        }
+
+        var user = _httpContextAccessor.HttpContext?.User;
+        if (user == null || !user.Identity?.IsAuthenticated == true)
+        {
+            _cachedScopes = new HashSet<string>();
+            return _cachedScopes;
+        }
+
+        // The "scp" claim contains space-separated scopes
+        var scopeClaim = user.FindFirst("scp")?.Value;
+        if (string.IsNullOrEmpty(scopeClaim))
+        {
+            _cachedScopes = new HashSet<string>();
+            return _cachedScopes;
+        }
+
+        _cachedScopes = scopeClaim
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .ToHashSet();
+
+        return _cachedScopes;
+    }
+
+    /// <inheritdoc />
+    public bool HasScope(string scope)
+    {
+        return GetScopes().Contains(scope);
+    }
+
+    /// <inheritdoc />
+    public bool HasAnyScope(params string[] scopes)
+    {
+        var presentScopes = GetScopes();
+        return scopes.Any(s => presentScopes.Contains(s));
+    }
+
+    /// <inheritdoc />
+    public bool HasAllScopes(params string[] scopes)
+    {
+        var presentScopes = GetScopes();
+        return scopes.All(s => presentScopes.Contains(s));
+    }
+
+    /// <inheritdoc />
+    public void RequireScope(params string[] scopes)
+    {
+        if (scopes.Length == 0)
+        {
+            return;
+        }
+
+        if (!_userContext.IsAuthenticated)
+        {
+            throw new UnauthorizedAccessException("Authentication is required.");
+        }
+
+        var presentScopes = GetScopes();
+
+        // If no scopes are present in the token, it means the token wasn't obtained via OAuth/PAT
+        // (e.g., development mode or direct OIDC without scope claims).
+        // In this case, we allow access for backward compatibility.
+        if (presentScopes.Count == 0)
+        {
+            return;
+        }
+
+        if (!scopes.Any(s => presentScopes.Contains(s)))
+        {
+            throw new InsufficientScopeException(scopes, presentScopes);
+        }
+    }
+
+    /// <inheritdoc />
+    public void RequireAllScopes(params string[] scopes)
+    {
+        if (scopes.Length == 0)
+        {
+            return;
+        }
+
+        if (!_userContext.IsAuthenticated)
+        {
+            throw new UnauthorizedAccessException("Authentication is required.");
+        }
+
+        var presentScopes = GetScopes();
+
+        // If no scopes are present in the token, allow access for backward compatibility
+        if (presentScopes.Count == 0)
+        {
+            return;
+        }
+
+        var missingScopes = scopes.Where(s => !presentScopes.Contains(s)).ToList();
+        if (missingScopes.Count > 0)
+        {
+            throw new InsufficientScopeException(scopes, presentScopes);
+        }
+    }
+
+    #endregion
+
+    #region Role-based Authorization (RBAC)
 
     /// <inheritdoc />
     public async Task<bool> CanAccessWorkspaceAsync(
@@ -155,4 +275,6 @@ public class AuthorizationService : IAuthorizationService
                 $"Access denied. Minimum project role required: {minimumRole}");
         }
     }
+
+    #endregion
 }
