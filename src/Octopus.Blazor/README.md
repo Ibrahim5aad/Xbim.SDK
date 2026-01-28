@@ -1,7 +1,6 @@
 # Octopus.Blazor
 
-[![NuGet](https://img.shields.io/nuget/v/Octopus.Blazor.svg?style=flat-square)](https://www.nuget.org/packages/Octopus.Blazor/)
-[![NuGet Downloads](https://img.shields.io/nuget/dt/Octopus.Blazor.svg?style=flat-square)](https://www.nuget.org/packages/Octopus.Blazor/)
+[![GitHub Packages](https://img.shields.io/badge/GitHub%20Packages-Octopus.Blazor-blue)](https://github.com/Ibrahim5aad/Octopus/pkgs/nuget/Octopus.Blazor)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A Blazor component library for building BIM (Building Information Modeling) applications. Wraps the [@xbim/viewer](https://www.npmjs.com/package/@xbim/viewer) JavaScript library for 3D model visualization in Blazor WebAssembly or Server applications.
@@ -28,8 +27,14 @@ This library supports two modes to fit different application needs:
 ## Installation
 
 ```bash
+# Add GitHub Packages source (one-time setup)
+dotnet nuget add source https://nuget.pkg.github.com/Ibrahim5aad/index.json --name github --username YOUR_GITHUB_USERNAME --password YOUR_GITHUB_PAT
+
+# Install the package
 dotnet add package Octopus.Blazor
 ```
+
+> **Note:** The `YOUR_GITHUB_PAT` needs `read:packages` scope. [Create a PAT here](https://github.com/settings/tokens).
 
 For platform mode, also install the API client:
 
@@ -309,4 +314,4 @@ MIT
 
 ## Related Packages
 
-- [Octopus.Api.Client](https://www.nuget.org/packages/Octopus.Api.Client/) - API client for Octopus Server
+- [Octopus.Api.Client](https://github.com/Ibrahim5aad/Octopus/pkgs/nuget/Octopus.Api.Client) - API client for Octopus Server

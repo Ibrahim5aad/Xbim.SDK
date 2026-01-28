@@ -5,10 +5,10 @@
 
 An open-source SDK and scaffold for building BIM (Building Information Modeling) applications with .NET 9. Octopus provides reusable components, a REST API server, and client libraries to accelerate the development of custom BIM solutions.
 
-| Package | NuGet |
-|---------|-------|
-| Octopus.Blazor | [![NuGet](https://img.shields.io/nuget/v/Octopus.Blazor.svg?style=flat-square)](https://www.nuget.org/packages/Octopus.Blazor/) |
-| Octopus.Api.Client | [![NuGet](https://img.shields.io/nuget/v/Octopus.Api.Client.svg?style=flat-square)](https://www.nuget.org/packages/Octopus.Api.Client/) |
+| Package | GitHub Packages |
+|---------|-----------------|
+| Octopus.Blazor | [View Package](https://github.com/Ibrahim5aad/Octopus/pkgs/nuget/Octopus.Blazor) |
+| Octopus.Api.Client | [View Package](https://github.com/Ibrahim5aad/Octopus/pkgs/nuget/Octopus.Api.Client) |
 
 ![Octopus Viewer](screenshot.png)
 
@@ -83,8 +83,14 @@ Octopus/
 For simple viewer applications without backend infrastructure:
 
 ```bash
+# Add GitHub Packages source (one-time setup)
+dotnet nuget add source https://nuget.pkg.github.com/Ibrahim5aad/index.json --name github --username YOUR_GITHUB_USERNAME --password YOUR_GITHUB_PAT
+
+# Install the package
 dotnet add package Octopus.Blazor
 ```
+
+> **Note:** The `YOUR_GITHUB_PAT` needs `read:packages` scope. [Create a PAT here](https://github.com/settings/tokens).
 
 Register services in `Program.cs`:
 
@@ -127,6 +133,7 @@ In standalone mode, you can:
 For full BIM applications with model management, storage, and collaboration:
 
 ```bash
+# If you haven't added the GitHub Packages source yet (see Standalone Mode above)
 dotnet add package Octopus.Blazor
 dotnet add package Octopus.Api.Client
 ```

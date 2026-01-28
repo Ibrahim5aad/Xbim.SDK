@@ -1,12 +1,11 @@
 # Octopus.Api.Client
 
-[![NuGet](https://img.shields.io/nuget/v/Octopus.Api.Client.svg?style=flat-square)](https://www.nuget.org/packages/Octopus.Api.Client/)
-[![NuGet Downloads](https://img.shields.io/nuget/dt/Octopus.Api.Client.svg?style=flat-square)](https://www.nuget.org/packages/Octopus.Api.Client/)
+[![GitHub Packages](https://img.shields.io/badge/GitHub%20Packages-Octopus.Api.Client-blue)](https://github.com/Ibrahim5aad/Octopus/pkgs/nuget/Octopus.Api.Client)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A typed HTTP client for the Octopus Server API. Use this package to connect your BIM applications to Octopus Server for model storage, processing, and management. Auto-generated from OpenAPI/Swagger specifications using NSwag.
 
-This package is required when using [Octopus.Blazor](https://www.nuget.org/packages/Octopus.Blazor/) in **Platform mode** (connected to Octopus Server). For standalone viewer applications without a backend, you only need Octopus.Blazor.
+This package is required when using [Octopus.Blazor](https://github.com/Ibrahim5aad/Octopus/pkgs/nuget/Octopus.Blazor) in **Platform mode** (connected to Octopus Server). For standalone viewer applications without a backend, you only need Octopus.Blazor.
 
 ## Features
 
@@ -18,8 +17,14 @@ This package is required when using [Octopus.Blazor](https://www.nuget.org/packa
 ## Installation
 
 ```bash
+# Add GitHub Packages source (one-time setup)
+dotnet nuget add source https://nuget.pkg.github.com/Ibrahim5aad/index.json --name github --username YOUR_GITHUB_USERNAME --password YOUR_GITHUB_PAT
+
+# Install the package
 dotnet add package Octopus.Api.Client
 ```
+
+> **Note:** The `YOUR_GITHUB_PAT` needs `read:packages` scope. [Create a PAT here](https://github.com/settings/tokens).
 
 ## Quick Start
 
@@ -159,4 +164,4 @@ MIT
 
 ## Related Packages
 
-- [Octopus.Blazor](https://www.nuget.org/packages/Octopus.Blazor/) - Blazor component library for 3D BIM visualization
+- [Octopus.Blazor](https://github.com/Ibrahim5aad/Octopus/pkgs/nuget/Octopus.Blazor) - Blazor component library for 3D BIM visualization
