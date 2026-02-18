@@ -40,7 +40,16 @@ jobs:
         dotnet-version: '9.0.x'
 
     - name: Restore dependencies
-      run: dotnet restore
+      run: |
+        dotnet restore src/Xbim.Server.Client/Xbim.Server.Client.csproj
+        dotnet restore src/Xbim.Server.App/Xbim.Server.App.csproj
+        dotnet restore src/Xbim.Server.Processing/Xbim.Server.Processing.csproj
+        dotnet restore src/Xbim.Server.Storage.AzureBlob/Xbim.Server.Storage.AzureBlob.csproj
+        dotnet restore src/Xbim.Server.Storage.LocalDisk/Xbim.Server.Storage.LocalDisk.csproj
+        dotnet restore tests/Xbim.Server.Client.Tests/Xbim.Server.Client.Tests.csproj
+        dotnet restore tests/Xbim.Server.App.Tests/Xbim.Server.App.Tests.csproj
+        dotnet restore tests/Xbim.Server.Processing.Tests/Xbim.Server.Processing.Tests.csproj
+        dotnet restore tests/Xbim.Server.Storage.Tests/Xbim.Server.Storage.Tests.csproj
 
     - name: Update version in csproj
       if: steps.get_version.outputs.is_release == 'true'
@@ -50,10 +59,19 @@ jobs:
       shell: pwsh
 
     - name: Build
-      run: dotnet build --configuration Release --no-restore
+      run: |
+        dotnet build src/Xbim.Server.Client/Xbim.Server.Client.csproj --configuration Release --no-restore
+        dotnet build src/Xbim.Server.App/Xbim.Server.App.csproj --configuration Release --no-restore
+        dotnet build src/Xbim.Server.Processing/Xbim.Server.Processing.csproj --configuration Release --no-restore
+        dotnet build src/Xbim.Server.Storage.AzureBlob/Xbim.Server.Storage.AzureBlob.csproj --configuration Release --no-restore
+        dotnet build src/Xbim.Server.Storage.LocalDisk/Xbim.Server.Storage.LocalDisk.csproj --configuration Release --no-restore
 
     - name: Run tests
-      run: dotnet test --configuration Release --no-build --verbosity normal
+      run: |
+        dotnet test tests/Xbim.Server.Client.Tests/Xbim.Server.Client.Tests.csproj --configuration Release --no-build --verbosity normal
+        dotnet test tests/Xbim.Server.App.Tests/Xbim.Server.App.Tests.csproj --configuration Release --no-build --verbosity normal
+        dotnet test tests/Xbim.Server.Processing.Tests/Xbim.Server.Processing.Tests.csproj --configuration Release --no-build --verbosity normal
+        dotnet test tests/Xbim.Server.Storage.Tests/Xbim.Server.Storage.Tests.csproj --configuration Release --no-build --verbosity normal
 
     - name: Pack Xbim.Server.Client
       if: steps.get_version.outputs.is_release == 'true'
