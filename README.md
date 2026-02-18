@@ -3,7 +3,7 @@
 [![Build Status](https://github.com/Ibrahim5aad/Xbim.WexSDK/actions/workflows/ci.yml/badge.svg)](https://github.com/Ibrahim5aad/Xbim.WexSDK/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-An open-source SDK and scaffold for building BIM (Building Information Modeling) applications with .NET 9. Xbim WexSDK provides reusable components, a REST API server, and client libraries to accelerate the development of custom BIM solutions.
+An open-source SDK for building BIM (Building Information Modeling) applications with .NET 9. Xbim WexSDK (along with [Xbim.WexBlazor](https://github.com/Ibrahim5aad/Xbim.WexBlazor)) provides reusable components, a REST API server, and client libraries to accelerate the development of custom BIM solutions.
 
 | Package | NuGet |
 |---------|-------|
@@ -20,17 +20,6 @@ Xbim is a toolkit for developers building BIM applications. It provides:
 - **REST API Server** - Ready-to-deploy backend for model storage, processing, and management
 - **Generated API Client** - Typed HTTP client for seamless server integration
 - **Reference Implementation** - Full web application demonstrating all capabilities
-
-### Two Development Modes
-
-The Blazor component library supports two modes to fit different use cases:
-
-| Mode | Use Case | Features |
-|------|----------|----------|
-| **Standalone** | Simple viewer apps, demos, embedded viewers | Load wexBIM files directly, no backend required, IFC processing in Blazor Server |
-| **Platform** | Full BIM applications with model management | Connect to Xbim Server for storage, versioning, collaboration, and cloud processing |
-
-Choose **Standalone** mode when you need a lightweight viewer without server infrastructure. Choose **Platform** mode when building applications that require model persistence, user management, or team collaboration.
 
 ## Architecture
 
@@ -68,93 +57,10 @@ Xbim/
 - **Role-Based Access** - Workspace and project membership with Owner/Member/Viewer roles
 
 ### Viewer Features
-- **3D BIM Visualization** - WebGL-based viewer using @xbim/viewer
-- **Plugin System** - Navigation cube, grid, section box, clipping planes
-- **Sidebar Docking** - Dockable/overlay panels for properties and hierarchy
-- **Property Display** - Multi-source property aggregation from IFC, database, or custom sources
-- **Model Hierarchy** - Product types and spatial structure navigation
-- **Theming** - Light/dark themes with customizable accent colors
-- **Direct IFC Loading** - Server-side IFC to wexBIM conversion (Blazor Server only)
+
+See [Xbim.WexBlazor](https://github.com/Ibrahim5aad/Xbim.WexBlazor) for the Blazor component library features including the 3D viewer, plugins, theming, and property display.
 
 ## Quick Start
-
-### Standalone Mode (No Server)
-
-For simple viewer applications without backend infrastructure:
-
-```bash
-# Add GitHub Packages source (one-time setup)
-dotnet nuget add source https://nuget.pkg.github.com/Ibrahim5aad/index.json --name github --username YOUR_GITHUB_USERNAME --password YOUR_GITHUB_PAT
-
-# Install the package
-dotnet add package Xbim.WexBlazor
-```
-
-> **Note:** The `YOUR_GITHUB_PAT` needs `read:packages` scope. [Create a PAT here](https://github.com/settings/tokens).
-
-Register services in `Program.cs`:
-
-```csharp
-builder.Services.AddWexBlazorStandalone();
-```
-
-Add to `_Imports.razor`:
-
-```razor
-@using Xbim.WexBlazor
-@using Xbim.WexBlazor.Components
-```
-
-Use the viewer component:
-
-```razor
-<XbimViewer Id="myViewer"
-               Width="800"
-               Height="600"
-               ModelUrl="models/SampleModel.wexbim"
-               OnModelLoaded="HandleModelLoaded">
-    <ViewerToolbar Position="ToolbarPosition.Top" />
-    <ViewerSidebar Position="SidebarPosition.Right">
-        <SidebarPanel Title="Properties" Icon="bi-info-circle">
-            <PropertiesPanel ShowHeader="false" />
-        </SidebarPanel>
-    </ViewerSidebar>
-</XbimViewer>
-```
-
-In standalone mode, you can:
-- Load wexBIM files from URLs or byte arrays
-- Process IFC files directly (Blazor Server only)
-- Display properties from IFC models or custom sources
-- Use all viewer plugins and UI components
-
-### Platform Mode (With Xbim Server)
-
-For full BIM applications with model management, storage, and collaboration:
-
-```bash
-# If you haven't added the GitHub Packages source yet (see Standalone Mode above)
-dotnet add package Xbim.WexBlazor
-dotnet add package Xbim.WexServer.Client
-```
-
-Register services in `Program.cs`:
-
-```csharp
-builder.Services.AddWexServerClient(options =>
-{
-    options.BaseUrl = "https://your-Xbim-server.com";
-});
-builder.Services.AddWexBlazorPlatform();
-```
-
-In platform mode, you additionally get:
-- Cloud storage for models (Azure Blob, local disk)
-- Model versioning and history
-- Workspace and project organization
-- User authentication and role-based access
-- Server-side IFC processing with job queues
-- Property extraction and database storage
 
 ### Running the Server
 
@@ -168,7 +74,7 @@ In platform mode, you additionally get:
   "Storage": {
     "Provider": "LocalDisk",
     "LocalDisk": {
-      "BasePath": "Xbim-storage"
+      "BasePath": "wex-storage"
     }
   }
 }
@@ -221,7 +127,7 @@ dotnet run --project src/Xbim.WexAppHost
   "Storage": {
     "Provider": "LocalDisk",
     "LocalDisk": {
-      "BasePath": "Xbim-storage"
+      "BasePath": "wex-storage"
     }
   }
 }
