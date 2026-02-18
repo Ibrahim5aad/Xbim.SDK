@@ -1203,19 +1203,6 @@
         }
       }
     },
-    "/api/v1/me": {
-      "get": {
-        "tags": [
-          "Xbim.WexServer"
-        ],
-        "operationId": "GetCurrentUser",
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
     "/api/v1/workspaces/{workspaceId}/pats": {
       "post": {
         "tags": [
@@ -2617,6 +2604,19 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "tags": [
+          "Xbim.WexServer"
+        ],
+        "operationId": "GetCurrentUser",
+        "responses": {
+          "200": {
+            "description": "OK"
           }
         }
       }

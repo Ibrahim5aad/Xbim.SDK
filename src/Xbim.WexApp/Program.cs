@@ -1,4 +1,4 @@
-﻿using Xbim.WexBlazor;
+using Xbim.WexBlazor;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,7 +11,7 @@ builder.Services.AddRazorComponents()
 // Configure Xbim.WexBlazor with PlatformConnected mode using configuration
 // In Development auth mode, no token is required
 // When running via AppHost, service discovery resolves "http://Xbim-server" to the actual endpoint
-builder.Services.AddXbimBlazorPlatformConnected(builder.Configuration);
+builder.Services.AddWexBlazorPlatformConnected(builder.Configuration);
 
 var app = builder.Build();
 

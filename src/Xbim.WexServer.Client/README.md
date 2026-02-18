@@ -32,7 +32,7 @@ dotnet add package Xbim.WexServer.Client
 
 ```csharp
 // Program.cs
-builder.Services.AddXbimClient(options =>
+builder.Services.AddWexServerClient(options =>
 {
     options.BaseUrl = "https://your-Xbim-server.com";
 });
@@ -57,7 +57,7 @@ Register with DI:
 
 ```csharp
 builder.Services.AddSingleton<IAuthTokenProvider, MyTokenProvider>();
-builder.Services.AddXbimClient(options =>
+builder.Services.AddWexServerClient(options =>
 {
     options.BaseUrl = "https://your-Xbim-server.com";
 });
@@ -108,7 +108,7 @@ The client provides typed methods for all server endpoints:
 ## Configuration Options
 
 ```csharp
-builder.Services.AddXbimClient(options =>
+builder.Services.AddWexServerClient(options =>
 {
     // Required: Server base URL
     options.BaseUrl = "https://api.example.com";

@@ -95,7 +95,7 @@ dotnet add package Xbim.WexBlazor
 Register services in `Program.cs`:
 
 ```csharp
-builder.Services.AddXbimBlazorStandalone();
+builder.Services.AddWexBlazorStandalone();
 ```
 
 Add to `_Imports.razor`:
@@ -141,11 +141,11 @@ dotnet add package Xbim.WexServer.Client
 Register services in `Program.cs`:
 
 ```csharp
-builder.Services.AddXbimClient(options =>
+builder.Services.AddWexServerClient(options =>
 {
     options.BaseUrl = "https://your-Xbim-server.com";
 });
-builder.Services.AddXbimBlazorPlatform();
+builder.Services.AddWexBlazorPlatform();
 ```
 
 In platform mode, you additionally get:

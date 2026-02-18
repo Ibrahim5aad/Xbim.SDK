@@ -15,11 +15,11 @@ public static class ServiceCollectionExtensions
     /// <param name="services">The service collection.</param>
     /// <param name="baseUrl">The base URL of the Xbim API.</param>
     /// <returns>The service collection for chaining.</returns>
-    public static IServiceCollection AddXbimClient(
+    public static IServiceCollection AddWexServerClient(
         this IServiceCollection services,
         string baseUrl)
     {
-        return services.AddXbimClient(options =>
+        return services.AddWexServerClient(options =>
         {
             options.BaseUrl = baseUrl;
         });
@@ -31,7 +31,7 @@ public static class ServiceCollectionExtensions
     /// <param name="services">The service collection.</param>
     /// <param name="configureOptions">Action to configure client options.</param>
     /// <returns>The service collection for chaining.</returns>
-    public static IServiceCollection AddXbimClient(
+    public static IServiceCollection AddWexServerClient(
         this IServiceCollection services,
         Action<XbimClientOptions> configureOptions)
     {
@@ -100,12 +100,12 @@ public static class ServiceCollectionExtensions
     /// <param name="baseUrl">The base URL of the Xbim API.</param>
     /// <param name="tokenProvider">The token provider for authentication.</param>
     /// <returns>The service collection for chaining.</returns>
-    public static IServiceCollection AddXbimClient(
+    public static IServiceCollection AddWexServerClient(
         this IServiceCollection services,
         string baseUrl,
         IAuthTokenProvider tokenProvider)
     {
-        return services.AddXbimClient(options =>
+        return services.AddWexServerClient(options =>
         {
             options.BaseUrl = baseUrl;
             options.TokenProvider = tokenProvider;
@@ -119,12 +119,12 @@ public static class ServiceCollectionExtensions
     /// <param name="baseUrl">The base URL of the Xbim API.</param>
     /// <param name="tokenFactory">A function that provides authentication tokens.</param>
     /// <returns>The service collection for chaining.</returns>
-    public static IServiceCollection AddXbimClient(
+    public static IServiceCollection AddWexServerClient(
         this IServiceCollection services,
         string baseUrl,
         Func<Task<string?>> tokenFactory)
     {
-        return services.AddXbimClient(options =>
+        return services.AddWexServerClient(options =>
         {
             options.BaseUrl = baseUrl;
             options.TokenFactory = _ => tokenFactory();
@@ -138,12 +138,12 @@ public static class ServiceCollectionExtensions
     /// <param name="baseUrl">The base URL of the Xbim API.</param>
     /// <param name="tokenFactory">A function that provides authentication tokens.</param>
     /// <returns>The service collection for chaining.</returns>
-    public static IServiceCollection AddXbimClient(
+    public static IServiceCollection AddWexServerClient(
         this IServiceCollection services,
         string baseUrl,
         Func<CancellationToken, Task<string?>> tokenFactory)
     {
-        return services.AddXbimClient(options =>
+        return services.AddWexServerClient(options =>
         {
             options.BaseUrl = baseUrl;
             options.TokenFactory = tokenFactory;
