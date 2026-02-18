@@ -24,26 +24,29 @@ Xbim is a toolkit for developers building BIM applications. It provides:
 ## Architecture
 
 ```
-Xbim/
+Xbim.WexSDK/
 ├── src/
-│   ├── Xbim.WexBlazor                          # Blazor component library (NuGet package)
-│   ├── Xbim.WexServer.Client                          # Generated API client (NuGet package)
-│   ├── Xbim.WexApp                              # Blazor web application
-│   ├── Xbim.WexServer                      # ASP.NET Core REST API
-│   ├── Xbim.WexServer.Domain                   # Domain entities
-│   ├── Xbim.WexServer.Contracts                # DTOs and API contracts
-│   ├── Xbim.WexServer.Abstractions             # Interfaces and abstractions
-│   ├── Xbim.WexServer.Persistence.EfCore       # Entity Framework Core data access
-│   ├── Xbim.WexServer.Processing               # Background job processing
-│   ├── Xbim.WexServer.Storage.LocalDisk        # Local disk storage provider
-│   ├── Xbim.WexServer.Storage.AzureBlob        # Azure Blob storage provider
-│   ├── Xbim.WexServer.ServiceDefaults                 # .NET Aspire shared configuration
-│   └── Xbim.WexAppHost                         # .NET Aspire orchestration
-├── samples/
-│   ├── Xbim.WexBlazor.Sample                   # WebAssembly standalone demo
-│   └── Xbim.WexBlazor.Server.Sample            # Blazor Server standalone demo with IFC support
+│   ├── Xbim.WexServer.Client             # Generated API client (NuGet package)
+│   ├── Xbim.WexApp                       # Blazor web application
+│   ├── Xbim.WexServer                    # ASP.NET Core REST API
+│   ├── Xbim.WexServer.Domain             # Domain entities
+│   ├── Xbim.WexServer.Contracts          # DTOs and API contracts
+│   ├── Xbim.WexServer.Abstractions       # Interfaces and abstractions
+│   ├── Xbim.WexServer.Persistence.EfCore # Entity Framework Core data access
+│   ├── Xbim.WexServer.Processing         # Background job processing
+│   ├── Xbim.WexServer.Storage.LocalDisk  # Local disk storage provider
+│   ├── Xbim.WexServer.Storage.AzureBlob  # Azure Blob storage provider
+│   ├── Xbim.WexServer.ServiceDefaults    # .NET Aspire shared configuration
+│   └── Xbim.WexAppHost                   # .NET Aspire orchestration
 └── tests/
-    └── ...                                     # Unit and integration tests
+    └── ...                               # Unit and integration tests
+
+Xbim.WexBlazor/  (separate repo: github.com/Ibrahim5aad/Xbim.WexBlazor)
+├── src/
+│   └── Xbim.WexBlazor                    # Blazor component library (NuGet package)
+└── samples/
+    ├── Xbim.WexBlazor.Sample             # WebAssembly standalone demo
+    └── Xbim.WexBlazor.Server.Sample      # Blazor Server demo with IFC support
 ```
 
 ## Features
