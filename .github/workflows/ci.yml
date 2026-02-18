@@ -68,10 +68,10 @@ jobs:
 
     - name: Run tests
       run: |
-        dotnet test tests/Xbim.Server.Client.Tests/Xbim.Server.Client.Tests.csproj --configuration Release --no-build --verbosity normal
-        dotnet test tests/Xbim.Server.App.Tests/Xbim.Server.App.Tests.csproj --configuration Release --no-build --verbosity normal
-        dotnet test tests/Xbim.Server.Processing.Tests/Xbim.Server.Processing.Tests.csproj --configuration Release --no-build --verbosity normal
-        dotnet test tests/Xbim.Server.Storage.Tests/Xbim.Server.Storage.Tests.csproj --configuration Release --no-build --verbosity normal
+        dotnet test tests/Xbim.Server.Client.Tests/Xbim.Server.Client.Tests.csproj --configuration Release --verbosity normal
+        dotnet test tests/Xbim.Server.App.Tests/Xbim.Server.App.Tests.csproj --configuration Release --verbosity normal
+        dotnet test tests/Xbim.Server.Processing.Tests/Xbim.Server.Processing.Tests.csproj --configuration Release --verbosity normal
+        dotnet test tests/Xbim.Server.Storage.Tests/Xbim.Server.Storage.Tests.csproj --configuration Release --verbosity normal
 
     - name: Pack Xbim.Server.Client
       if: steps.get_version.outputs.is_release == 'true'
