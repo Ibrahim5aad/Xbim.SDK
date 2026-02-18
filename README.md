@@ -10,11 +10,9 @@ An open-source SDK for building BIM (Building Information Modeling) applications
 | Xbim.WexBlazor | [![NuGet](https://img.shields.io/nuget/v/Xbim.WexBlazor)](https://www.nuget.org/packages/Xbim.WexBlazor) |
 | Xbim.WexServer.Client | [![NuGet](https://img.shields.io/nuget/v/Xbim.WexServer.Client)](https://www.nuget.org/packages/Xbim.WexServer.Client) |
 
-![Xbim Viewer](screenshot.png)
+## What is WexSDK?
 
-## What is Xbim?
-
-Xbim is a toolkit for developers building BIM applications. It provides:
+WexSDK is a toolkit for developers building BIM applications. It provides:
 
 - **Blazor Component Library** - Drop-in 3D viewer components for visualizing IFC/wexBIM models
 - **REST API Server** - Ready-to-deploy backend for model storage, processing, and management
@@ -53,7 +51,7 @@ Xbim.WexBlazor/  (separate repo: github.com/Ibrahim5aad/Xbim.WexBlazor)
 
 ### Server Features
 - **Model Management** - Workspaces, projects, models, and versioning
-- **IFC Processing** - Automatic conversion to wexBIM format using xBIM Geometry Engine
+- **IFC Processing** - Automatic conversion to wexBIM format using xbim Geometry Engine
 - **Property Extraction** - Extract and store IFC properties in database for fast retrieval
 - **Multiple Storage Backends** - Local disk or Azure Blob Storage
 - **Background Processing** - Async job queue for long-running operations
@@ -196,7 +194,6 @@ Full API documentation available at `/swagger` when running the server.
 ### Prerequisites
 
 - .NET 9.0 SDK
-- Node.js 20+ (for TypeScript compilation)
 - SQL Server or SQLite
 
 ### Building
@@ -245,5 +242,5 @@ MIT
 
 ## Acknowledgements
 
-- [@xbim/viewer](https://www.npmjs.com/package/@xbim/viewer) - WebGL BIM viewer
-- [xBIM Toolkit](https://github.com/xBimTeam) - .NET BIM libraries
+- [@xbim/viewer](https://www.npmjs.com/package/@xbim/viewer) - xbim's WebGL BIM viewer
+- [xbim Toolkit](https://github.com/xBimTeam) - xbim's .NET BIM libraries
