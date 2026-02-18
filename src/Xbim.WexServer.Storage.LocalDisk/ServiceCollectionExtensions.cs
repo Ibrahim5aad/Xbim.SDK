@@ -47,7 +47,7 @@ public static class ServiceCollectionExtensions
     /// <returns>The service collection for chaining.</returns>
     public static IServiceCollection AddLocalDiskStorage(
         this IServiceCollection services,
-        string basePath = "Xbim-storage")
+        string basePath = "wex-storage")
     {
         return services.AddLocalDiskStorage(options => options.BasePath = basePath);
     }

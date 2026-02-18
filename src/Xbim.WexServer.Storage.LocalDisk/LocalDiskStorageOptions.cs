@@ -7,9 +7,9 @@ public class LocalDiskStorageOptions
 {
     /// <summary>
     /// The base directory path where files will be stored.
-    /// Default: "Xbim-storage" in the application's content root.
+    /// Default: "wex-storage" in the application's content root.
     /// </summary>
-    public string BasePath { get; set; } = "Xbim-storage";
+    public string BasePath { get; set; } = "wex-storage";
 
     /// <summary>
     /// Whether to create the base directory if it doesn't exist.

@@ -75,7 +75,7 @@ if (storageProvider.Equals("AzureBlob", StringComparison.OrdinalIgnoreCase))
 else
 {
     // Default to LocalDisk for development
-    var basePath = builder.Configuration.GetValue<string>("Storage:LocalDisk:BasePath") ?? "Xbim-storage";
+    var basePath = builder.Configuration.GetValue<string>("Storage:LocalDisk:BasePath") ?? "wex-storage";
     builder.Services.AddLocalDiskStorage(basePath);
 }
 
