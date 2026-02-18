@@ -1,11 +1,11 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Updates the Octopus.Api.Client by fetching the latest OpenAPI spec from the server.
+    Updates the Xbim.Server.Client by fetching the latest OpenAPI spec from the server.
 
 .DESCRIPTION
     This script:
-    1. Starts the Octopus.Server.App
+    1. Starts the Xbim.Server.App
     2. Waits for the server to be ready
     3. Downloads the swagger.json
     4. Stops the server
@@ -32,11 +32,11 @@ param(
 $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptDir
-$serverProject = Join-Path $repoRoot "src/Octopus.Server.App/Octopus.Server.App.csproj"
-$clientDir = Join-Path $repoRoot "src/Octopus.Api.Client"
+$serverProject = Join-Path $repoRoot "src/Xbim.Server.App/Xbim.Server.App.csproj"
+$clientDir = Join-Path $repoRoot "src/Xbim.Server.Client"
 $swaggerPath = Join-Path $clientDir "swagger.json"
 
-Write-Host "== Octopus Client Update ==" -ForegroundColor Cyan
+Write-Host "== Xbim Client Update ==" -ForegroundColor Cyan
 
 $serverProcess = $null
 
@@ -84,7 +84,7 @@ try {
     }
 }
 
-Write-Host "Rebuilding Octopus.Api.Client to regenerate code..." -ForegroundColor Yellow
+Write-Host "Rebuilding Xbim.Server.Client to regenerate code..." -ForegroundColor Yellow
 Push-Location $clientDir
 try {
     # Force regeneration by touching swagger.json or cleaning
@@ -94,4 +94,4 @@ try {
 }
 
 Write-Host "== Client updated successfully! ==" -ForegroundColor Cyan
-Write-Host "Generated file: src/Octopus.Api.Client/Generated/OctopusClient.cs"
+Write-Host "Generated file: src/Xbim.Server.Client/Generated/XbimClient.cs"

@@ -16,7 +16,6 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
-      packages: write
 
     steps:
     - name: Checkout code
@@ -40,33 +39,14 @@ jobs:
       with:
         dotnet-version: '9.0.x'
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-
-    - name: Install TypeScript
-      run: npm install -g typescript
-
     - name: Restore dependencies
       run: dotnet restore
 
-    - name: Restore LibMan libraries
-      run: |
-        dotnet tool install -g Microsoft.Web.LibraryManager.Cli
-        libman restore --verbosity detailed
-      working-directory: src/Octopus.Blazor
-
-    - name: Compile TypeScript
-      run: npx tsc --project src/Octopus.Blazor/tsconfig.json
-
-    - name: Update version in csproj files
+    - name: Update version in csproj
       if: steps.get_version.outputs.is_release == 'true'
       run: |
         $version = "${{ steps.get_version.outputs.version }}"
-        foreach ($file in @("src/Octopus.Blazor/Octopus.Blazor.csproj", "src/Octopus.Api.Client/Octopus.Api.Client.csproj")) {
-          (Get-Content $file) -replace '<Version>.*</Version>', "<Version>$version</Version>" | Set-Content $file
-        }
+        (Get-Content src/Xbim.Server.Client/Xbim.Server.Client.csproj) -replace '<Version>.*</Version>', "<Version>$version</Version>" | Set-Content src/Xbim.Server.Client/Xbim.Server.Client.csproj
       shell: pwsh
 
     - name: Build
@@ -75,11 +55,9 @@ jobs:
     - name: Run tests
       run: dotnet test --configuration Release --no-build --verbosity normal
 
-    - name: Pack NuGet packages
+    - name: Pack Xbim.Server.Client
       if: steps.get_version.outputs.is_release == 'true'
-      run: |
-        dotnet pack src/Octopus.Api.Client/Octopus.Api.Client.csproj --configuration Release --no-build --output ./artifacts
-        dotnet pack src/Octopus.Blazor/Octopus.Blazor.csproj --configuration Release --no-build --output ./artifacts
+      run: dotnet pack src/Xbim.Server.Client/Xbim.Server.Client.csproj --configuration Release --no-build --output ./artifacts
 
     - name: Upload NuGet packages
       if: steps.get_version.outputs.is_release == 'true'
@@ -101,7 +79,6 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
-      packages: write
 
     steps:
     - name: Extract version from tag
@@ -127,8 +104,8 @@ jobs:
       with:
         dotnet-version: '9.0.x'
 
-    - name: Push to GitHub Packages
-      run: dotnet nuget push ./artifacts/*.nupkg --api-key ${{ secrets.GITHUB_TOKEN }} --source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json --skip-duplicate
+    - name: Push to NuGet
+      run: dotnet nuget push ./artifacts/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
@@ -138,24 +115,11 @@ jobs:
           ./artifacts/*.snupkg
         generate_release_notes: true
         body: |
-          ## 📦 NuGet Packages (GitHub Packages)
+          ## NuGet Packages
 
-          ### Setup (one-time)
-          Add the GitHub Packages source to your NuGet config:
+          ### Xbim.Server.Client
           ```bash
-          dotnet nuget add source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json --name github --username YOUR_GITHUB_USERNAME --password YOUR_GITHUB_PAT
-          ```
-
-          ### Octopus.Blazor
-          [GitHub Packages](https://github.com/${{ github.repository }}/pkgs/nuget/Octopus.Blazor)
-          ```bash
-          dotnet add package Octopus.Blazor --version ${{ steps.get_version.outputs.version }}
-          ```
-
-          ### Octopus.Api.Client
-          [GitHub Packages](https://github.com/${{ github.repository }}/pkgs/nuget/Octopus.Api.Client)
-          ```bash
-          dotnet add package Octopus.Api.Client --version ${{ steps.get_version.outputs.version }}
+          dotnet add package Xbim.Server.Client --version ${{ steps.get_version.outputs.version }}
           ```
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

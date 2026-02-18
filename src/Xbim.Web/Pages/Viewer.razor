@@ -1,0 +1,390 @@
+﻿@page "/viewer"
+@layout ViewerLayout
+@using Xbim.WexBlazor.Components
+@using Xbim.WexBlazor.Components.BuiltInButtons
+@using Xbim.WexBlazor.Interop
+@using Xbim.WexBlazor.Models
+@using Xbim.WexBlazor.Services
+@using Xbim.WexBlazor.Services.Abstractions
+@using Xbim.WexBlazor.Services.Server
+@using Xbim.Server.Client
+@inject IModelsService ModelsService
+@inject ThemeService ThemeService
+@inject IProcessingService ProcessingService
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject IXbimApiClient XbimClient
+@inject IPropertyService PropertyService
+@implements IDisposable
+@implements IAsyncDisposable
+
+<PageTitle>Model Viewer</PageTitle>
+
+@if (loading)
+{
+    <div class="d-flex justify-content-center align-items-center" style="height: 100vh;">
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3">Loading model...</p>
+        </div>
+    </div>
+}
+else if (error != null)
+{
+    <div class="d-flex justify-content-center align-items-center" style="height: 100vh;">
+        <div class="alert alert-danger m-4">
+            <h4>Error</h4>
+            <p>@error</p>
+            <a href="models" class="btn btn-outline-primary">Back to Models</a>
+        </div>
+    </div>
+}
+else if (modelVersion != null)
+{
+    <div class="viewer-container" style="height: 100vh; width: 100%; position: relative;">
+        @if (modelVersion.Status == ProcessingStatus._2 && wexbimUrl != null)
+        {
+            <XbimViewer @ref="viewer"
+                           Id="mainViewer"
+                           Width="100%"
+                           Height="100%"
+                           BackgroundColor="@ThemeService.CurrentBackgroundColor"
+                           OnViewerInitialized="OnViewerInitialized"
+                           OnModelLoaded="OnModelLoaded"
+                           OnError="OnViewerError">
+
+                @if (viewer != null)
+                {
+                    <ViewerToolbar Items="@_toolbarItems"
+                                   Position="ToolbarPosition.Bottom"
+                                   Alignment="ToolbarAlignment.Center" />
+
+                    <ViewerSidebar Position="SidebarPosition.Left">
+                        <SidebarPanel Icon="bi-info-circle" Title="Properties" @bind-IsOpen="_showPropertiesPanel" Width="320">
+                            <PropertiesPanel ShowHeader="false" />
+                        </SidebarPanel>
+                        <SidebarPanel Icon="bi-diagram-3" Title="Hierarchy" @bind-IsOpen="_showHierarchyPanel" Width="300">
+                            <ModelHierarchyPanel ShowHeader="false" />
+                        </SidebarPanel>
+                    </ViewerSidebar>
+                }
+            </XbimViewer>
+
+            <div class="viewer-header-overlay">
+                <div></div>
+                <div class="viewer-header-right">
+                    <div class="model-info">
+                        <strong>@model?.Name</strong>
+                        <span class="version-badge">v@(modelVersion.VersionNumber)</span>
+                    </div>
+                    <a href="models?projectId=@model?.ProjectId" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </a>
+                </div>
+            </div>
+        }
+        else if (modelVersion.Status == ProcessingStatus._1 || modelVersion.Status == ProcessingStatus._0)
+        {
+            <div class="d-flex justify-content-center align-items-center h-100">
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Processing...</span>
+                    </div>
+                    <p class="mt-3">Model is being processed. Please wait...</p>
+                </div>
+            </div>
+        }
+        else if (modelVersion.Status == ProcessingStatus._3)
+        {
+            <div class="d-flex justify-content-center align-items-center h-100">
+                <div class="alert alert-danger">
+                    <h5>Processing Failed</h5>
+                    <p>@modelVersion.ErrorMessage</p>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [SupplyParameterFromQuery]
+    public Guid? VersionId { get; set; }
+
+    private XbimViewer? viewer;
+    private ModelDto? model;
+    private ModelVersionDto? modelVersion;
+    private string? wexbimUrl;
+    private bool loading = true;
+    private string? error;
+
+    // Toolbar and plugins
+    private List<ToolbarItemBase> _toolbarItems = new();
+    private SectionBoxPlugin? _sectionBoxPlugin;
+    private ClippingPlanePlugin? _clippingPlanePlugin;
+    private GridPlugin? _gridPlugin;
+    private bool _interactivePluginsInitialized = false;
+
+    // Sidebar panels
+    private bool _showPropertiesPanel = false;
+    private bool _showHierarchyPanel = false;
+
+    // Property source for SQL Server integration
+    private PlatformPropertySource? _platformPropertySource;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ProcessingService.OnStatusChanged += OnProcessingStatusChanged;
+        ThemeService.OnThemeChanged += OnThemeChanged;
+
+        if (!VersionId.HasValue || VersionId.Value == Guid.Empty)
+        {
+            error = "No version ID provided.";
+            loading = false;
+            return;
+        }
+
+        try
+        {
+            // Load model version
+            modelVersion = await ModelsService.GetVersionAsync(VersionId.Value);
+            if (modelVersion == null)
+            {
+                error = "Model version not found.";
+                loading = false;
+                return;
+            }
+
+            // Load model
+            if (modelVersion.ModelId.HasValue)
+            {
+                model = await ModelsService.GetAsync(modelVersion.ModelId.Value);
+            }
+
+            // If ready, get the WexBIM URL
+            if (modelVersion.Status == ProcessingStatus._2)
+            {
+                await LoadWexBim();
+            }
+            else if (modelVersion.Status == ProcessingStatus._1 || modelVersion.Status == ProcessingStatus._0)
+            {
+                // Start watching for status changes
+                ProcessingService.StartWatching(VersionId.Value);
+            }
+        }
+        catch (Exception ex)
+        {
+            error = $"Failed to load model: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task LoadWexBim()
+    {
+        if (!VersionId.HasValue) return;
+
+        try
+        {
+            var response = await ModelsService.GetWexBimAsync(VersionId.Value);
+            if (response?.Stream != null)
+            {
+                using var ms = new MemoryStream();
+                await response.Stream.CopyToAsync(ms);
+                var bytes = ms.ToArray();
+
+                // Create blob URL for the viewer
+                wexbimUrl = await JS.InvokeAsync<string>("createBlobUrl", bytes, "application/octet-stream");
+            }
+        }
+        catch (Exception ex)
+        {
+            error = $"Failed to load WexBIM: {ex.Message}";
+        }
+    }
+
+    private async void OnProcessingStatusChanged(ModelVersionStatusChangedEventArgs args)
+    {
+        if (args.VersionId != VersionId) return;
+
+        modelVersion = await ModelsService.GetVersionAsync(args.VersionId);
+
+        if (args.NewStatus == ProcessingStatus._2)
+        {
+            ProcessingService.StopWatching(args.VersionId);
+            await LoadWexBim();
+        }
+        else if (args.NewStatus == ProcessingStatus._3)
+        {
+            ProcessingService.StopWatching(args.VersionId);
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnViewerInitialized(string viewerId)
+    {
+        InitializeToolbar();
+
+        // Create and register PlatformPropertySource for SQL Server property integration
+        _platformPropertySource = new PlatformPropertySource(XbimClient, "Platform Properties");
+        PropertyService.RegisterSource(_platformPropertySource);
+
+        if (viewer != null)
+        {
+            // Add NavigationCubePlugin for orientation
+            var navigationCubePlugin = new NavigationCubePlugin
+            {
+                Ratio = 0.02,
+                PassiveAlpha = 1,
+                ActiveAlpha = 1
+            };
+            await viewer.AddPluginAsync(navigationCubePlugin);
+
+            // Add GridPlugin with theme-aware color
+            _gridPlugin = new GridPlugin
+            {
+                Factor = 1.5,
+                ZFactor = 20,
+                NumberOfLines = 20,
+                Color = ThemeService.CurrentGridColor
+            };
+            await viewer.AddPluginAsync(_gridPlugin);
+
+            // Load model if URL is ready
+            if (wexbimUrl != null)
+            {
+                var loadedModel = await viewer.LoadModelAsync(wexbimUrl, model?.Name ?? "Model");
+
+                // Register model mapping for property lookups
+                if (loadedModel != null && VersionId.HasValue)
+                {
+                    _platformPropertySource.RegisterModelMapping(loadedModel.Id, VersionId.Value);
+                }
+            }
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void InitializeToolbar()
+    {
+        if (viewer == null) return;
+
+        _toolbarItems = new List<ToolbarItemBase>
+        {
+            ViewerBuiltInButtons.CreatePerspectiveToggle(viewer, startWithPerspective: true),
+            ViewerBuiltInButtons.CreateZoomFitButton(viewer),
+            ViewerBuiltInButtons.CreateResetViewButton(viewer),
+            ViewerBuiltInButtons.CreateViewsDropdown(viewer),
+            ViewerBuiltInButtons.CreateNavigationButtons(viewer),
+            ViewerBuiltInButtons.CreateXRayToggle(viewer),
+            ViewerBuiltInButtons.CreateHideToggle(viewer),
+            ViewerBuiltInButtons.CreateIsolateToggle(viewer),
+            ViewerBuiltInButtons.CreateClearSelectionButton(viewer),
+            ViewerBuiltInButtons.CreateSectionBoxButtons(viewer, () => _sectionBoxPlugin, "Box", StateHasChanged),
+            ViewerBuiltInButtons.CreateClippingPlaneButtons(viewer, () => _clippingPlanePlugin, "Plane", StateHasChanged)
+        };
+    }
+
+    private async Task OnModelLoaded(bool success)
+    {
+        if (viewer != null && success)
+        {
+            // Initialize interactive plugins after first model load (they need geometry)
+            if (!_interactivePluginsInitialized)
+            {
+                _sectionBoxPlugin = new SectionBoxPlugin
+                {
+                    IsStopped = true
+                };
+                await viewer.AddPluginAsync(_sectionBoxPlugin);
+
+                _clippingPlanePlugin = new ClippingPlanePlugin
+                {
+                    IsStopped = true
+                };
+                await viewer.AddPluginAsync(_clippingPlanePlugin);
+
+                _interactivePluginsInitialized = true;
+            }
+
+            await viewer.ZoomFitAsync();
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void OnViewerError(Xbim.WexBlazor.Interop.ViewerEventArgs args)
+    {
+        error = $"Viewer error: {args.Message}";
+        StateHasChanged();
+    }
+
+    private async void OnThemeChanged()
+    {
+        if (viewer != null)
+        {
+            // Apply theme to viewer and update grid color
+            await ThemeService.ApplyToViewerAsync(viewer, _gridPlugin);
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private string GetStatusBadgeClass(ProcessingStatus? status) => status switch
+    {
+        ProcessingStatus._0 => "bg-secondary",
+        ProcessingStatus._1 => "bg-primary",
+        ProcessingStatus._2 => "bg-success",
+        ProcessingStatus._3 => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    private string GetStatusText(ProcessingStatus? status) => status switch
+    {
+        ProcessingStatus._0 => "Pending",
+        ProcessingStatus._1 => "Processing",
+        ProcessingStatus._2 => "Ready",
+        ProcessingStatus._3 => "Failed",
+        _ => "Unknown"
+    };
+
+    public void Dispose()
+    {
+        ProcessingService.OnStatusChanged -= OnProcessingStatusChanged;
+        ThemeService.OnThemeChanged -= OnThemeChanged;
+        if (VersionId.HasValue)
+        {
+            ProcessingService.StopWatching(VersionId.Value);
+        }
+
+        // Clean up property source
+        if (_platformPropertySource != null)
+        {
+            PropertyService.UnregisterSource(_platformPropertySource.Id);
+            _platformPropertySource.Dispose();
+            _platformPropertySource = null;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Dispose();
+
+        // Revoke the blob URL to free memory
+        if (!string.IsNullOrEmpty(wexbimUrl))
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("URL.revokeObjectURL", wexbimUrl);
+            }
+            catch
+            {
+                // Ignore errors during disposal
+            }
+        }
+    }
+}

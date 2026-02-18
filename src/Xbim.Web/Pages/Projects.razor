@@ -1,0 +1,226 @@
+﻿@page "/projects"
+@inject IWorkspacesService WorkspacesService
+@inject IProjectsService ProjectsService
+@inject NavigationManager Navigation
+
+<PageTitle>Projects</PageTitle>
+
+<div class="page-header">
+    <h1>Projects</h1>
+    <p>Manage your BIM projects and their associated models.</p>
+</div>
+
+<!-- Workspace Selector -->
+<div class="section-card">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-4">
+            <label class="form-label">Select Workspace</label>
+            <select class="form-select" @onchange="OnWorkspaceChanged">
+                <option value="">-- Select a workspace --</option>
+                @if (workspaces != null)
+                {
+                    @foreach (var ws in workspaces)
+                    {
+                        <option value="@ws.Id" selected="@(ws.Id == selectedWorkspaceId)">@ws.Name</option>
+                    }
+                }
+            </select>
+        </div>
+    </div>
+</div>
+
+@if (selectedWorkspaceId != Guid.Empty)
+{
+    <!-- Create New Project -->
+    <div class="section-card">
+        <h3 class="section-title">
+            <i class="bi bi-folder-plus"></i>
+            Create New Project
+        </h3>
+        <EditForm Model="@newProject" OnValidSubmit="CreateProject">
+            <DataAnnotationsValidator />
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label">Name</label>
+                    <InputText class="form-control" @bind-Value="newProject.Name" placeholder="Project name" />
+                    <ValidationMessage For="@(() => newProject.Name)" />
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">Description</label>
+                    <InputText class="form-control" @bind-Value="newProject.Description" placeholder="Optional description" />
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary w-100" disabled="@creating">
+                        @if (creating)
+                        {
+                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                        }
+                        <i class="bi bi-folder-plus"></i>
+                        Create Project
+                    </button>
+                </div>
+            </div>
+        </EditForm>
+        @if (createError != null)
+        {
+            <div class="alert alert-danger mt-3">@createError</div>
+        }
+    </div>
+
+    <!-- Projects Grid -->
+    @if (loadingProjects)
+    {
+        <div class="loading-state">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (projectsError != null)
+    {
+        <div class="alert alert-warning">@projectsError</div>
+    }
+    else if (projects == null || !projects.Any())
+    {
+        <div class="empty-state">
+            <div class="empty-icon">
+                <i class="bi bi-folder"></i>
+            </div>
+            <h3>No projects yet</h3>
+            <p>Create your first project above to start uploading models.</p>
+        </div>
+    }
+    else
+    {
+        <div class="dashboard-grid">
+            @foreach (var proj in projects)
+            {
+                <div class="item-card">
+                    <div class="item-icon" style="background: var(--Xbim-success-bg); color: var(--Xbim-success);">
+                        <i class="bi bi-folder"></i>
+                    </div>
+                    <h3 class="item-title">@proj.Name</h3>
+                    <p class="item-description">@(string.IsNullOrEmpty(proj.Description) ? "No description provided." : proj.Description)</p>
+                    <div class="item-meta">
+                        <span>
+                            <i class="bi bi-calendar"></i>
+                            @(proj.CreatedAt?.LocalDateTime.ToString("MMM d, yyyy") ?? "-")
+                        </span>
+                    </div>
+                    <div class="item-actions">
+                        <a href="@($"models?projectId={proj.Id}")" class="btn btn-primary flex-1">
+                            <i class="bi bi-box"></i>
+                            View Models
+                        </a>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+}
+else
+{
+    <div class="empty-state">
+        <div class="empty-icon">
+            <i class="bi bi-folder"></i>
+        </div>
+        <h3>Select a workspace</h3>
+        <p>Choose a workspace above to view and manage its projects.</p>
+    </div>
+}
+
+@code {
+    [SupplyParameterFromQuery]
+    public Guid? WorkspaceId { get; set; }
+
+    private List<WorkspaceDto>? workspaces;
+    private Guid selectedWorkspaceId;
+    private List<ProjectDto>? projects;
+    private bool loadingProjects;
+    private string? projectsError;
+
+    private CreateProjectRequest newProject = new();
+    private bool creating;
+    private string? createError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Load workspaces
+        try
+        {
+            var result = await WorkspacesService.ListAsync(1, 100);
+            workspaces = result.Items?.ToList() ?? new List<WorkspaceDto>();
+        }
+        catch
+        {
+            workspaces = new List<WorkspaceDto>();
+        }
+
+        // If workspaceId is provided in URL, select it
+        if (WorkspaceId.HasValue && WorkspaceId.Value != Guid.Empty)
+        {
+            selectedWorkspaceId = WorkspaceId.Value;
+            await LoadProjects();
+        }
+    }
+
+    private async Task OnWorkspaceChanged(ChangeEventArgs e)
+    {
+        if (Guid.TryParse(e.Value?.ToString(), out var wsId))
+        {
+            selectedWorkspaceId = wsId;
+            Navigation.NavigateTo($"projects?workspaceId={wsId}", replace: true);
+            await LoadProjects();
+        }
+        else
+        {
+            selectedWorkspaceId = Guid.Empty;
+            projects = null;
+        }
+    }
+
+    private async Task LoadProjects()
+    {
+        if (selectedWorkspaceId == Guid.Empty) return;
+
+        loadingProjects = true;
+        projectsError = null;
+
+        try
+        {
+            var result = await ProjectsService.ListAsync(selectedWorkspaceId, 1, 50);
+            projects = result.Items?.ToList() ?? new List<ProjectDto>();
+        }
+        catch (Exception ex)
+        {
+            projectsError = $"Failed to load projects: {ex.Message}";
+        }
+        finally
+        {
+            loadingProjects = false;
+        }
+    }
+
+    private async Task CreateProject()
+    {
+        if (string.IsNullOrWhiteSpace(newProject.Name) || selectedWorkspaceId == Guid.Empty) return;
+
+        creating = true;
+        createError = null;
+
+        try
+        {
+            await ProjectsService.CreateAsync(selectedWorkspaceId, newProject);
+            newProject = new CreateProjectRequest();
+            await LoadProjects();
+        }
+        catch (Exception ex)
+        {
+            createError = $"Failed to create project: {ex.Message}";
+        }
+        finally
+        {
+            creating = false;
+        }
+    }
+}

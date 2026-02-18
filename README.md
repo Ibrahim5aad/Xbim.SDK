@@ -1,20 +1,20 @@
-# Octopus
+﻿# Xbim SDK
 
-[![Build Status](https://github.com/Ibrahim5aad/Octopus/actions/workflows/ci.yml/badge.svg)](https://github.com/Ibrahim5aad/Octopus/actions/workflows/ci.yml)
+[![Build Status](https://github.com/Ibrahim5aad/Xbim/actions/workflows/ci.yml/badge.svg)](https://github.com/Ibrahim5aad/Xbim/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-An open-source SDK and scaffold for building BIM (Building Information Modeling) applications with .NET 9. Octopus provides reusable components, a REST API server, and client libraries to accelerate the development of custom BIM solutions.
+An open-source SDK and scaffold for building BIM (Building Information Modeling) applications with .NET 9. Xbim provides reusable components, a REST API server, and client libraries to accelerate the development of custom BIM solutions.
 
 | Package | GitHub Packages |
 |---------|-----------------|
-| Octopus.Blazor | [View Package](https://github.com/Ibrahim5aad/Octopus/pkgs/nuget/Octopus.Blazor) |
-| Octopus.Api.Client | [View Package](https://github.com/Ibrahim5aad/Octopus/pkgs/nuget/Octopus.Api.Client) |
+| Xbim.WexBlazor | [View Package](https://github.com/Ibrahim5aad/Xbim/pkgs/nuget/Xbim.WexBlazor) |
+| Xbim.Server.Client | [View Package](https://github.com/Ibrahim5aad/Xbim/pkgs/nuget/Xbim.Server.Client) |
 
-![Octopus Viewer](screenshot.png)
+![Xbim Viewer](screenshot.png)
 
-## What is Octopus?
+## What is Xbim?
 
-Octopus is a toolkit for developers building BIM applications. It provides:
+Xbim is a toolkit for developers building BIM applications. It provides:
 
 - **Blazor Component Library** - Drop-in 3D viewer components for visualizing IFC/wexBIM models
 - **REST API Server** - Ready-to-deploy backend for model storage, processing, and management
@@ -28,31 +28,31 @@ The Blazor component library supports two modes to fit different use cases:
 | Mode | Use Case | Features |
 |------|----------|----------|
 | **Standalone** | Simple viewer apps, demos, embedded viewers | Load wexBIM files directly, no backend required, IFC processing in Blazor Server |
-| **Platform** | Full BIM applications with model management | Connect to Octopus Server for storage, versioning, collaboration, and cloud processing |
+| **Platform** | Full BIM applications with model management | Connect to Xbim Server for storage, versioning, collaboration, and cloud processing |
 
 Choose **Standalone** mode when you need a lightweight viewer without server infrastructure. Choose **Platform** mode when building applications that require model persistence, user management, or team collaboration.
 
 ## Architecture
 
 ```
-Octopus/
+Xbim/
 ├── src/
-│   ├── Octopus.Blazor                          # Blazor component library (NuGet package)
-│   ├── Octopus.Api.Client                          # Generated API client (NuGet package)
-│   ├── Octopus.Web                             # Blazor Server web application
-│   ├── Octopus.Server.App                      # ASP.NET Core REST API
-│   ├── Octopus.Server.Domain                   # Domain entities
-│   ├── Octopus.Server.Contracts                # DTOs and API contracts
-│   ├── Octopus.Server.Abstractions             # Interfaces and abstractions
-│   ├── Octopus.Server.Persistence.EfCore       # Entity Framework Core data access
-│   ├── Octopus.Server.Processing               # Background job processing
-│   ├── Octopus.Server.Storage.LocalDisk        # Local disk storage provider
-│   ├── Octopus.Server.Storage.AzureBlob        # Azure Blob storage provider
-│   ├── Octopus.ServiceDefaults                 # .NET Aspire shared configuration
-│   └── Octopus.AppHost                         # .NET Aspire orchestration
+│   ├── Xbim.WexBlazor                          # Blazor component library (NuGet package)
+│   ├── Xbim.Server.Client                          # Generated API client (NuGet package)
+│   ├── Xbim.Web                             # Blazor Server web application
+│   ├── Xbim.Server.App                      # ASP.NET Core REST API
+│   ├── Xbim.Server.Domain                   # Domain entities
+│   ├── Xbim.Server.Contracts                # DTOs and API contracts
+│   ├── Xbim.Server.Abstractions             # Interfaces and abstractions
+│   ├── Xbim.Server.Persistence.EfCore       # Entity Framework Core data access
+│   ├── Xbim.Server.Processing               # Background job processing
+│   ├── Xbim.Server.Storage.LocalDisk        # Local disk storage provider
+│   ├── Xbim.Server.Storage.AzureBlob        # Azure Blob storage provider
+│   ├── Xbim.ServiceDefaults                 # .NET Aspire shared configuration
+│   └── Xbim.AppHost                         # .NET Aspire orchestration
 ├── samples/
-│   ├── Octopus.Blazor.Sample                   # WebAssembly standalone demo
-│   └── Octopus.Blazor.Server.Sample            # Blazor Server standalone demo with IFC support
+│   ├── Xbim.WexBlazor.Sample                   # WebAssembly standalone demo
+│   └── Xbim.WexBlazor.Server.Sample            # Blazor Server standalone demo with IFC support
 └── tests/
     └── ...                                     # Unit and integration tests
 ```
@@ -87,7 +87,7 @@ For simple viewer applications without backend infrastructure:
 dotnet nuget add source https://nuget.pkg.github.com/Ibrahim5aad/index.json --name github --username YOUR_GITHUB_USERNAME --password YOUR_GITHUB_PAT
 
 # Install the package
-dotnet add package Octopus.Blazor
+dotnet add package Xbim.WexBlazor
 ```
 
 > **Note:** The `YOUR_GITHUB_PAT` needs `read:packages` scope. [Create a PAT here](https://github.com/settings/tokens).
@@ -95,20 +95,20 @@ dotnet add package Octopus.Blazor
 Register services in `Program.cs`:
 
 ```csharp
-builder.Services.AddOctopusBlazorStandalone();
+builder.Services.AddXbimBlazorStandalone();
 ```
 
 Add to `_Imports.razor`:
 
 ```razor
-@using Octopus.Blazor
-@using Octopus.Blazor.Components
+@using Xbim.WexBlazor
+@using Xbim.WexBlazor.Components
 ```
 
 Use the viewer component:
 
 ```razor
-<OctopusViewer Id="myViewer"
+<XbimViewer Id="myViewer"
                Width="800"
                Height="600"
                ModelUrl="models/SampleModel.wexbim"
@@ -119,7 +119,7 @@ Use the viewer component:
             <PropertiesPanel ShowHeader="false" />
         </SidebarPanel>
     </ViewerSidebar>
-</OctopusViewer>
+</XbimViewer>
 ```
 
 In standalone mode, you can:
@@ -128,24 +128,24 @@ In standalone mode, you can:
 - Display properties from IFC models or custom sources
 - Use all viewer plugins and UI components
 
-### Platform Mode (With Octopus Server)
+### Platform Mode (With Xbim Server)
 
 For full BIM applications with model management, storage, and collaboration:
 
 ```bash
 # If you haven't added the GitHub Packages source yet (see Standalone Mode above)
-dotnet add package Octopus.Blazor
-dotnet add package Octopus.Api.Client
+dotnet add package Xbim.WexBlazor
+dotnet add package Xbim.Server.Client
 ```
 
 Register services in `Program.cs`:
 
 ```csharp
-builder.Services.AddOctopusClient(options =>
+builder.Services.AddXbimClient(options =>
 {
-    options.BaseUrl = "https://your-octopus-server.com";
+    options.BaseUrl = "https://your-Xbim-server.com";
 });
-builder.Services.AddOctopusBlazorPlatform();
+builder.Services.AddXbimBlazorPlatform();
 ```
 
 In platform mode, you additionally get:
@@ -168,7 +168,7 @@ In platform mode, you additionally get:
   "Storage": {
     "Provider": "LocalDisk",
     "LocalDisk": {
-      "BasePath": "octopus-storage"
+      "BasePath": "Xbim-storage"
     }
   }
 }
@@ -177,7 +177,7 @@ In platform mode, you additionally get:
 2. Run the server:
 
 ```bash
-dotnet run --project src/Octopus.Server.App
+dotnet run --project src/Xbim.Server.App
 ```
 
 ### Running with .NET Aspire
@@ -185,7 +185,7 @@ dotnet run --project src/Octopus.Server.App
 For local development with full orchestration:
 
 ```bash
-dotnet run --project src/Octopus.AppHost
+dotnet run --project src/Xbim.AppHost
 ```
 
 ## Server Configuration
@@ -208,7 +208,7 @@ dotnet run --project src/Octopus.AppHost
     "Provider": "SqlServer"
   },
   "ConnectionStrings": {
-    "DefaultConnection": "Server=...;Database=Octopus;..."
+    "DefaultConnection": "Server=...;Database=Xbim;..."
   }
 }
 ```
@@ -221,7 +221,7 @@ dotnet run --project src/Octopus.AppHost
   "Storage": {
     "Provider": "LocalDisk",
     "LocalDisk": {
-      "BasePath": "octopus-storage"
+      "BasePath": "Xbim-storage"
     }
   }
 }
@@ -234,7 +234,7 @@ dotnet run --project src/Octopus.AppHost
     "Provider": "AzureBlob",
     "AzureBlob": {
       "ConnectionString": "...",
-      "ContainerName": "octopus-models"
+      "ContainerName": "Xbim-models"
     }
   }
 }
@@ -293,8 +293,8 @@ Full API documentation available at `/swagger` when running the server.
 ### Building
 
 ```bash
-git clone https://github.com/Ibrahim5aad/Octopus.git
-cd Octopus
+git clone https://github.com/Ibrahim5aad/Xbim.git
+cd Xbim
 dotnet build
 ```
 
@@ -308,18 +308,18 @@ dotnet test
 
 **WebAssembly Sample** (standalone viewer):
 ```bash
-dotnet run --project samples/Octopus.Blazor.Sample
+dotnet run --project samples/Xbim.WexBlazor.Sample
 ```
 
 **Blazor Server Sample** (with IFC processing):
 ```bash
-dotnet run --project samples/Octopus.Blazor.Server.Sample
+dotnet run --project samples/Xbim.WexBlazor.Server.Sample
 ```
 
 ## Documentation
 
-- [Octopus.Blazor Component Library](src/Octopus.Blazor/README.md)
-- [Octopus.Api.Client API Client](src/Octopus.Api.Client/README.md)
+- [Xbim.WexBlazor Component Library](src/Xbim.WexBlazor/README.md)
+- [Xbim.Server.Client API Client](src/Xbim.Server.Client/README.md)
 
 ## Technology Stack
 

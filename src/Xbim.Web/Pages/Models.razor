@@ -1,0 +1,517 @@
+﻿@page "/models"
+@inject IWorkspacesService WorkspacesService
+@inject IProjectsService ProjectsService
+@inject IModelsService ModelsService
+@inject IFilesService FilesService
+@inject IProcessingService ProcessingService
+@inject NavigationManager Navigation
+@implements IDisposable
+
+<PageTitle>Models</PageTitle>
+
+<div class="page-header">
+    <h1>Models</h1>
+    <p>Upload and manage your IFC models for 3D visualization.</p>
+</div>
+
+<!-- Workspace & Project Selector -->
+<div class="section-card">
+    <div class="row g-3">
+        <div class="col-md-4">
+            <label class="form-label">Select Workspace</label>
+            <select class="form-select" @onchange="OnWorkspaceChanged">
+                <option value="">-- Select a workspace --</option>
+                @if (workspaces != null)
+                {
+                    @foreach (var ws in workspaces)
+                    {
+                        <option value="@ws.Id" selected="@(ws.Id == selectedWorkspaceId)">@ws.Name</option>
+                    }
+                }
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Select Project</label>
+            <select class="form-select" @onchange="OnProjectChanged" disabled="@(selectedWorkspaceId == Guid.Empty)">
+                <option value="">-- Select a project --</option>
+                @if (projects != null)
+                {
+                    @foreach (var proj in projects)
+                    {
+                        <option value="@proj.Id" selected="@(proj.Id == selectedProjectId)">@proj.Name</option>
+                    }
+                }
+            </select>
+        </div>
+    </div>
+</div>
+
+@if (selectedProjectId != Guid.Empty)
+{
+    <!-- Upload Section -->
+    <div class="section-card">
+        <h3 class="section-title">
+            <i class="bi bi-cloud-upload"></i>
+            Upload IFC Model
+        </h3>
+        <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">Model Name</label>
+                <input type="text" class="form-control" @bind="newModelName" placeholder="Model name" />
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">IFC File</label>
+                <InputFile class="form-control" OnChange="OnFileSelected" accept=".ifc" />
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-primary w-100" @onclick="UploadAndProcess" disabled="@(uploading || selectedFile == null)">
+                    @if (uploading)
+                    {
+                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                        @uploadStatus
+                    }
+                    else
+                    {
+                        <i class="bi bi-cloud-upload"></i>
+                        <text>Upload & Process</text>
+                    }
+                </button>
+            </div>
+        </div>
+        @if (uploadError != null)
+        {
+            <div class="alert alert-danger mt-3">@uploadError</div>
+        }
+    </div>
+
+    <!-- Models List -->
+    @if (loadingModels)
+    {
+        <div class="loading-state">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (modelsError != null)
+    {
+        <div class="alert alert-warning">@modelsError</div>
+    }
+    else if (models == null || !models.Any())
+    {
+        <div class="empty-state">
+            <div class="empty-icon">
+                <i class="bi bi-box"></i>
+            </div>
+            <h3>No models yet</h3>
+            <p>Upload an IFC file above to get started.</p>
+        </div>
+    }
+    else
+    {
+        <div class="dashboard-grid">
+            @foreach (var model in models)
+            {
+                <div class="item-card">
+                    <div class="item-icon" style="background: var(--Xbim-info-bg); color: var(--Xbim-info);">
+                        <i class="bi bi-box"></i>
+                    </div>
+                    <h3 class="item-title">@model.Name</h3>
+                    <div class="item-meta">
+                        <span>
+                            <i class="bi bi-calendar"></i>
+                            @(model.CreatedAt?.LocalDateTime.ToString("MMM d, yyyy") ?? "-")
+                        </span>
+                    </div>
+                    <div class="item-actions">
+                        <button class="btn @(selectedModelId == model.Id ? "btn-primary" : "btn-outline-primary") flex-1" @onclick="() => ViewVersions(model.Id)">
+                            <i class="bi bi-list"></i>
+                            @(selectedModelId == model.Id ? "Viewing Versions" : "View Versions")
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- Model Versions -->
+    @if (selectedModelId.HasValue && modelVersions != null)
+    {
+        <div class="card mt-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="bi bi-clock-history"></i>
+                    Model Versions
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => selectedModelId = null">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+            <div class="card-body">
+                @if (!modelVersions.Any())
+                {
+                    <div class="empty-state">
+                        <p>No versions yet.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Version</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var version in modelVersions)
+                                {
+                                    var status = watchedStatuses.GetValueOrDefault(version.Id ?? Guid.Empty, version.Status);
+                                    <tr>
+                                        <td>
+                                            <strong>v@version.VersionNumber</strong>
+                                        </td>
+                                        <td>
+                                            <span class="badge @GetStatusBadgeClass(status)">
+                                                @GetStatusText(status)
+                                                @if (status == ProcessingStatus._0 || status == ProcessingStatus._1)
+                                                {
+                                                    <span class="spinner-border spinner-border-sm ms-1" role="status" aria-hidden="true"></span>
+                                                }
+                                            </span>
+                                        </td>
+                                        <td>@(version.CreatedAt?.LocalDateTime.ToString("MMM d, yyyy h:mm tt") ?? "-")</td>
+                                        <td>
+                                            @if (status == ProcessingStatus._2)
+                                            {
+                                                <a href="@($"viewer?versionId={version.Id}")" class="btn btn-sm btn-outline-success">
+                                                    <i class="bi bi-eye"></i>
+                                                    View in 3D
+                                                </a>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+}
+else
+{
+    <div class="empty-state">
+        <div class="empty-icon">
+            <i class="bi bi-box"></i>
+        </div>
+        <h3>Select a project</h3>
+        <p>Choose a workspace and project above to view and manage models.</p>
+    </div>
+}
+
+@code {
+    [SupplyParameterFromQuery]
+    public Guid? ProjectId { get; set; }
+
+    private List<WorkspaceDto>? workspaces;
+    private List<ProjectDto>? projects;
+    private List<ModelDto>? models;
+    private List<ModelVersionDto>? modelVersions;
+    private Guid selectedWorkspaceId;
+    private Guid selectedProjectId;
+    private Guid? selectedModelId;
+    private bool loadingModels;
+    private string? modelsError;
+
+    private string newModelName = "";
+    private IBrowserFile? selectedFile;
+    private bool uploading;
+    private string uploadStatus = "";
+    private string? uploadError;
+
+    private Dictionary<Guid, ProcessingStatus?> watchedStatuses = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        ProcessingService.OnStatusChanged += OnProcessingStatusChanged;
+
+        // Load workspaces
+        try
+        {
+            var result = await WorkspacesService.ListAsync(1, 100);
+            workspaces = result.Items?.ToList() ?? new List<WorkspaceDto>();
+        }
+        catch
+        {
+            workspaces = new List<WorkspaceDto>();
+        }
+
+        // If projectId is provided in URL, find its workspace and load
+        if (ProjectId.HasValue && ProjectId.Value != Guid.Empty)
+        {
+            selectedProjectId = ProjectId.Value;
+            try
+            {
+                var project = await ProjectsService.GetAsync(selectedProjectId);
+                if (project != null && project.WorkspaceId.HasValue)
+                {
+                    selectedWorkspaceId = project.WorkspaceId.Value;
+                    var projResult = await ProjectsService.ListAsync(selectedWorkspaceId, 1, 100);
+                    projects = projResult.Items?.ToList() ?? new List<ProjectDto>();
+                    await LoadModels();
+                }
+            }
+            catch
+            {
+                // Project not found
+            }
+        }
+    }
+
+    private async Task OnWorkspaceChanged(ChangeEventArgs e)
+    {
+        if (Guid.TryParse(e.Value?.ToString(), out var wsId))
+        {
+            selectedWorkspaceId = wsId;
+            selectedProjectId = Guid.Empty;
+            selectedModelId = null;
+            models = null;
+            modelVersions = null;
+
+            try
+            {
+                var result = await ProjectsService.ListAsync(wsId, 1, 100);
+                projects = result.Items?.ToList() ?? new List<ProjectDto>();
+            }
+            catch
+            {
+                projects = new List<ProjectDto>();
+            }
+        }
+        else
+        {
+            selectedWorkspaceId = Guid.Empty;
+            selectedProjectId = Guid.Empty;
+            selectedModelId = null;
+            projects = null;
+            models = null;
+            modelVersions = null;
+        }
+    }
+
+    private async Task OnProjectChanged(ChangeEventArgs e)
+    {
+        if (Guid.TryParse(e.Value?.ToString(), out var projId))
+        {
+            selectedProjectId = projId;
+            selectedModelId = null;
+            modelVersions = null;
+            Navigation.NavigateTo($"models?projectId={projId}", replace: true);
+            await LoadModels();
+        }
+        else
+        {
+            selectedProjectId = Guid.Empty;
+            selectedModelId = null;
+            models = null;
+            modelVersions = null;
+        }
+    }
+
+    private async Task LoadModels()
+    {
+        if (selectedProjectId == Guid.Empty) return;
+
+        loadingModels = true;
+        modelsError = null;
+        StopAllWatching();
+
+        try
+        {
+            var result = await ModelsService.ListAsync(selectedProjectId, 1, 50);
+            models = result.Items?.ToList() ?? new List<ModelDto>();
+        }
+        catch (Exception ex)
+        {
+            modelsError = $"Failed to load models: {ex.Message}";
+        }
+        finally
+        {
+            loadingModels = false;
+        }
+    }
+
+    private async Task ViewVersions(Guid? modelId)
+    {
+        if (!modelId.HasValue) return;
+
+        selectedModelId = modelId;
+        StopAllWatching();
+
+        try
+        {
+            var result = await ModelsService.ListVersionsAsync(modelId.Value, 1, 50);
+            modelVersions = result.Items?.ToList() ?? new List<ModelVersionDto>();
+
+            // Start watching processing versions
+            foreach (var version in modelVersions)
+            {
+                if (version.Id.HasValue &&
+                    (version.Status == ProcessingStatus._0 || version.Status == ProcessingStatus._1))
+                {
+                    watchedStatuses[version.Id.Value] = version.Status;
+                    ProcessingService.StartWatching(version.Id.Value);
+                }
+            }
+        }
+        catch
+        {
+            modelVersions = new List<ModelVersionDto>();
+        }
+    }
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+        if (string.IsNullOrWhiteSpace(newModelName))
+        {
+            newModelName = Path.GetFileNameWithoutExtension(selectedFile.Name);
+        }
+    }
+
+    private async Task UploadAndProcess()
+    {
+        if (selectedFile == null || selectedProjectId == Guid.Empty) return;
+
+        uploading = true;
+        uploadError = null;
+
+        try
+        {
+            // 1. Reserve upload session
+            uploadStatus = "Reserving...";
+            StateHasChanged();
+
+            var reserveResponse = await FilesService.ReserveUploadAsync(selectedProjectId, new ReserveUploadRequest
+            {
+                FileName = selectedFile.Name,
+                ContentType = "application/octet-stream",
+                ExpectedSizeBytes = selectedFile.Size
+            });
+
+            var sessionId = reserveResponse.Session?.Id ?? Guid.Empty;
+            if (sessionId == Guid.Empty)
+            {
+                throw new Exception("Failed to create upload session");
+            }
+
+            // 2. Upload content
+            uploadStatus = "Uploading...";
+            StateHasChanged();
+
+            using var stream = selectedFile.OpenReadStream(maxAllowedSize: 500 * 1024 * 1024); // 500MB max
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            ms.Position = 0;
+
+            var fileParameter = new FileParameter(ms, selectedFile.Name, "application/octet-stream");
+            await FilesService.UploadContentAsync(selectedProjectId, sessionId, fileParameter);
+
+            // 3. Commit upload
+            uploadStatus = "Committing...";
+            StateHasChanged();
+
+            var commitResponse = await FilesService.CommitUploadAsync(selectedProjectId, sessionId, null);
+            var fileId = commitResponse.File?.Id ?? Guid.Empty;
+            if (fileId == Guid.Empty)
+            {
+                throw new Exception("Failed to commit upload");
+            }
+
+            // 4. Create model
+            uploadStatus = "Creating model...";
+            StateHasChanged();
+
+            var model = await ModelsService.CreateAsync(selectedProjectId, new CreateModelRequest
+            {
+                Name = string.IsNullOrWhiteSpace(newModelName) ? selectedFile.Name : newModelName
+            });
+
+            // 5. Create version (triggers processing)
+            uploadStatus = "Starting processing...";
+            StateHasChanged();
+
+            var modelId = model.Id ?? Guid.Empty;
+            if (modelId == Guid.Empty)
+            {
+                throw new Exception("Failed to create model");
+            }
+
+            await ModelsService.CreateVersionAsync(modelId, new CreateModelVersionRequest
+            {
+                IfcFileId = fileId
+            });
+
+            // Reset form and reload
+            newModelName = "";
+            selectedFile = null;
+            await LoadModels();
+        }
+        catch (Exception ex)
+        {
+            uploadError = $"Upload failed: {ex.Message}";
+        }
+        finally
+        {
+            uploading = false;
+            uploadStatus = "";
+        }
+    }
+
+    private void OnProcessingStatusChanged(ModelVersionStatusChangedEventArgs args)
+    {
+        watchedStatuses[args.VersionId] = args.NewStatus;
+
+        if (args.NewStatus == ProcessingStatus._2 || args.NewStatus == ProcessingStatus._3)
+        {
+            ProcessingService.StopWatching(args.VersionId);
+        }
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    private string GetStatusBadgeClass(ProcessingStatus? status) => status switch
+    {
+        ProcessingStatus._0 => "bg-secondary",  // Pending
+        ProcessingStatus._1 => "bg-primary",    // Processing
+        ProcessingStatus._2 => "bg-success",    // Ready
+        ProcessingStatus._3 => "bg-danger",     // Failed
+        _ => "bg-secondary"
+    };
+
+    private string GetStatusText(ProcessingStatus? status) => status switch
+    {
+        ProcessingStatus._0 => "Pending",
+        ProcessingStatus._1 => "Processing",
+        ProcessingStatus._2 => "Ready",
+        ProcessingStatus._3 => "Failed",
+        _ => "Unknown"
+    };
+
+    private void StopAllWatching()
+    {
+        ProcessingService.StopWatchingAll();
+        watchedStatuses.Clear();
+    }
+
+    public void Dispose()
+    {
+        ProcessingService.OnStatusChanged -= OnProcessingStatusChanged;
+        StopAllWatching();
+    }
+}
