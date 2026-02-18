@@ -1,14 +1,14 @@
-# Xbim SDK
+# Xbim WexSDK
 
-[![Build Status](https://github.com/Ibrahim5aad/Xbim/actions/workflows/ci.yml/badge.svg)](https://github.com/Ibrahim5aad/Xbim/actions/workflows/ci.yml)
+[![Build Status](https://github.com/Ibrahim5aad/Xbim.WexSDK/actions/workflows/ci.yml/badge.svg)](https://github.com/Ibrahim5aad/Xbim.WexSDK/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-An open-source SDK and scaffold for building BIM (Building Information Modeling) applications with .NET 9. Xbim provides reusable components, a REST API server, and client libraries to accelerate the development of custom BIM solutions.
+An open-source SDK and scaffold for building BIM (Building Information Modeling) applications with .NET 9. Xbim WexSDK provides reusable components, a REST API server, and client libraries to accelerate the development of custom BIM solutions.
 
-| Package | GitHub Packages |
-|---------|-----------------|
-| Xbim.WexBlazor | [View Package](https://github.com/Ibrahim5aad/Xbim/pkgs/nuget/Xbim.WexBlazor) |
-| Xbim.WexServer.Client | [View Package](https://github.com/Ibrahim5aad/Xbim/pkgs/nuget/Xbim.WexServer.Client) |
+| Package | NuGet |
+|---------|-------|
+| Xbim.WexBlazor | [![NuGet](https://img.shields.io/nuget/v/Xbim.WexBlazor)](https://www.nuget.org/packages/Xbim.WexBlazor) |
+| Xbim.WexServer.Client | [![NuGet](https://img.shields.io/nuget/v/Xbim.WexServer.Client)](https://www.nuget.org/packages/Xbim.WexServer.Client) |
 
 ![Xbim Viewer](screenshot.png)
 
@@ -39,7 +39,7 @@ Xbim/
 ├── src/
 │   ├── Xbim.WexBlazor                          # Blazor component library (NuGet package)
 │   ├── Xbim.WexServer.Client                          # Generated API client (NuGet package)
-│   ├── Xbim.Web                             # Blazor Server web application
+│   ├── Xbim.WexApp                              # Blazor web application
 │   ├── Xbim.WexServer                      # ASP.NET Core REST API
 │   ├── Xbim.WexServer.Domain                   # Domain entities
 │   ├── Xbim.WexServer.Contracts                # DTOs and API contracts
@@ -293,8 +293,8 @@ Full API documentation available at `/swagger` when running the server.
 ### Building
 
 ```bash
-git clone https://github.com/Ibrahim5aad/Xbim.git
-cd Xbim
+git clone https://github.com/Ibrahim5aad/Xbim.WexSDK.git
+cd Xbim.WexSDK
 dotnet build
 ```
 

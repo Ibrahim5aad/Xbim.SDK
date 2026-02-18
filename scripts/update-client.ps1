@@ -45,7 +45,7 @@ try {
         Write-Host "Starting server..." -ForegroundColor Yellow
 
         $serverProcess = Start-Process -FilePath "dotnet" `
-            -ArgumentList "run", "--project", $serverProject, "--urls", $ServerUrl `
+            -ArgumentList "run", "--project", "`"$serverProject`"", "--urls", $ServerUrl `
             -PassThru -NoNewWindow
 
         Write-Host "Waiting for server to be ready..."
